@@ -1,0 +1,20 @@
+#!/bin/sh
+set -x
+module="ccontrol"
+mod_path="."
+device="ccontrol"
+mode="666"
+
+# remove devices
+rm -f /dev/${device}?
+
+#invode insmod
+/sbin/insmod -f $mod_path/$module.ko $* || exit 1
+
+major=`cat /proc/devices | awk "\\$2==\"$module\" {print \\$1}"`
+minors=`dmesg | tail -n 20 | grep "$module:" | grep "devices" | sed -e "s/.*$module/$module/g" | awk '/available/ {last = $2-1} END{print last}'`
+for i in `seq 0 $minors`
+do
+	mknod /dev/${device}$i c $major $i
+	chmod $mode /dev/${device}$i
+done

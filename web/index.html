@@ -1,0 +1,72 @@
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<meta name="description" content="Cache Control:restricting memory allocations
+	to partitions of the hardware memory cache." />
+	<meta name="keywords" content="linux, cache partitioning" />
+	<title>Homepage of Cache Control</title>
+	<link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+
+<body>
+	<div id="all">
+	<div id="menu">
+	<ul>
+		<li class="button"><a href="#about">About</a></li>
+		<li class="button"><a href="#about">Documentation</a></li>
+		<li class="button"><a href="#about">Get</a></li>
+		<li class="button"><a href="#about">Contact</a></li>
+	</ul>
+	</div>
+
+	<div id="content">
+		<em> Welcome to the Homepage of Cache Control</em>	
+		<h3>About</h3>
+		<a name="about"/>
+			<p>Cache Control is a Linux kernel module enabling user applications
+			to restrict their memory allocations to a subset of the hardware memory
+			cache.
+			</p>
+			<p>This module reserves and exports available physical memory as
+			virtual devices that can be mmap'd to. It gives to calling processes
+			physical memory using only a subset of the cache (similarly to 
+			<a href="http://en.wikipedia.org/wiki/Cache_coloring">page coloring</a>).
+			It actually creates cache partitions that can be
+			used simultaneously by a process to control how much cache a data 
+			structure can use.
+			</p>
+			<p>This tool was developed by the 
+			<a href="http://moais.imag.fr">INRIA MOAIS Team</a>.</p>
+			
+		<h3>Documentation</h3>
+		<a name="documentation"/>
+		<p>Documentation for this tool can be found in the README file distributed with
+		the source code.
+		</p>
+		<p>A Research paper will soon be made available which will discuss possible uses
+		of this tool.
+		</p>
+
+		<h3>Get the code</h3>
+		<a name="get"/>
+			<p>Source code is available 
+			<a href="http://git.ligforge.imag.fr/?p=ccontrol/ccontrol.git">here</a> 
+			under the GPLv2 Licence.
+			</p>
+
+		<h3>Contact</h3>
+		<a name="contact"/>
+			<p>You can contact Swann Perarnau (main developer) at 
+			Swann DOT Perarnau AT imag DOT fr.
+			</p>
+			<p>You can also contact the developers through the
+			<a href="">mailing list</a>.
+			</p>
+	</div>
+	
+
+	<div id="footer">
+	</div>
+</div>
+</body>
+</html>

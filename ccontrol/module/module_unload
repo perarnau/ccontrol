@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+set -u
+set -x
+module="ccontrol"
+device="ccontrol"
+
+# invode rmmod with all args
+/sbin/rmmod $module $* || exit 1
+
+# remove nodes
+rm -f /dev/${device}[0-8]
+
+exit 0

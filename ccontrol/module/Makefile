@@ -1,4 +1,4 @@
-obj-m = kmod.o
+obj-m = ccontrol.o
 
 M=$(shell pwd)
 
