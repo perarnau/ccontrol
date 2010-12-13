@@ -29,7 +29,7 @@ typedef unsigned long __color_mask;
 typedef struct {
 	__color_mask colors_bits[ __CSET_SIZE ];
 } color_set;
-#define  __COLORS_BITS(set) ((set)->__colors_bits)
+#define  __COLORS_BITS(set) ((set)->colors_bits)
 
 /* Number of colors in color_set. */
 #define COLOR_SETSIZE	__MAX_COLORS

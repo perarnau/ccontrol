@@ -15,121 +15,118 @@
 // memory management
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
+#include <linux/slab.h>
 #include <asm/page.h>
+#include <asm/uaccess.h>
 // devices
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+// linked list
+#include <linux/list.h>
 // cache info
 #include "cache.h"
-
+#include "../lib/colorset.h"
+#include "ioctls.h"
 MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
 MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical adress range.");
 MODULE_LICENSE("GPL");
 
-// module parameters
-static unsigned int subdivs[MAX_SUBDIVISIONS];
-static unsigned int subdivs_size;
-module_param_array(subdivs,uint,&subdivs_size,0);
-MODULE_PARM_DESC(subdivs,"array of cache subdivision sizes.");
 static unsigned long mem = 1<<10;
 module_param(mem,ulong,0);
 MODULE_PARM_DESC(mem,"How much memory should I reserve in RAM.");
+/* need it global because of cleanup code */
 static unsigned int order = 0;
-// maps each color to a subdivision
-static int colormap[LL_NUM_COLORS];
 
-/* Initializes the colormap.
- * If the L2 is the last cache, we do a simple
- * contiguous allocation of colors to subdivisions.
- * If both L3 and L2 are present, we sort the colors
- * by L2 affinity before giving them to subdivs.
+/* devices structures:
+ * two types of devices are handled for ccontrol:
+ *   - the control device which is always present.
+ *   This device allow users to request or destroy
+ *   a colored device using a simple syntax.
+ *   - the colored devices: each time a user
+ *   request a colored device it is created by this module. The user can then
+ *   call mmap on it to access colored memory.
+ *
+ * Colored devices are short-lived where as the control one lives as long as the module.
+ * Pages allocated to the module are saved in global memory (concurrent access are not handled
+ * for now.
+ * Permission to access the device are not implemented.
  */
-#ifdef L2_NUM_COLORS
-void init_colormap(void)
-{
-	int i,j;
-	int index = 0;
-	int colors[LL_NUM_COLORS];
-	for(i = 0; i < L2_NUM_COLORS; i++)
-	{
-		for(j = 0; j < LL_NUM_COLORS/L2_NUM_COLORS; j++)
-			colors[index++] = j*L2_NUM_COLORS +i;
-		if(j*L2_NUM_COLORS + i < LL_NUM_COLORS)
-			colors[index++] = j*L2_NUM_COLORS +i;
-	}
-	// now register the subdiv mapping
-	index = 0;
-	for(i = 0; i < subdivs_size; i++)
-		for(j = 0; j < subdivs[i]; j++)
-			colormap[colors[index++]] = i;
 
-	for(i = 0; i < LL_NUM_COLORS; i++)
-		printk(KERN_DEBUG "ccontrol:colormap: color=%u,subdiv=%u.\n",
-			i,colormap[i]);
-}
-#else
-void init_colormap(void)
-{
-	int i,j;
-	int index = 0;
-	for(i = 0; i < subdivs_size; i++)
-		for(j = 0; j < subdivs[i]; j++)
-			colormap[index++] = i;
+/* this saves major and minor device numbers
+ * used by all our devices.
+ * The control device is minor 0, all other indices
+ * are colored ones.
+ */
+#define MAX_DEVICES 64
+#define DEVICES_DEFAULT_VALUE (MKDEV(MAJOR(MAJOR_NUM),MINOR(0)))
+static dev_t devices_id = DEVICES_DEFAULT_VALUE;
 
-	for(i = 0; i < LL_NUM_COLORS; i++)
-		printk(KERN_DEBUG "ccontrol:colormap: color=%u,subdiv=%u.\n",
-			i,colormap[i]);
-}
-#endif
-
-// devices
-static dev_t parts_dev = 0;
-struct ccontrol_dev {
-	unsigned int size;
-	struct page **pages;
+/* colored devices are created with a fixed size (in pages).
+ * Pages allocated to the device are saved into it (for fast retreival).
+ * The struct also contain the colorset associated with this device and
+ * the current number of pages associated with the device.
+ * All colored devices are stored into a linked list.
+ */
+struct colored_dev {
 	struct cdev cdev;
+	unsigned int minor;
+	unsigned int nbpages;
+	struct page **pages;
+	color_set colors;
+	struct list_head devices;
 };
 
-struct ccontrol_dev *ccontrol_devices = NULL;
+/* the control device, structure only contains the head of the colored
+ * devices list.*/
+struct control_dev {
+	struct cdev cdev;
+	struct list_head devices;
+};
 
-// allocated pages
-struct page* **pages = NULL;
+struct control_dev control;
+unsigned int nbdevices = 0;
+
+/* Allocated Pages:
+ * the kernel module reserves physical memory by making BIG allocations (BIG enough
+ * to contain at least a page for each color in the last level cache.
+ * Thoses bigs allocations are called heads and are of size 2**order pages.
+ *
+ * Once reserved, an head is split into pages and a list of all the pages of the same
+ * color is saved into a global array.
+ *
+ * Heads need to be saved independently from colors because all heads do not start
+ * at the same color.
+ */
+
+struct page** pages[LL_NUM_COLORS];
+unsigned int nbpages[LL_NUM_COLORS];
 struct page* *heads = NULL;
-unsigned int *sizes = NULL;
-unsigned int heads_size  = 0;
+unsigned int nbheads  = 0;
 
-// VMA Operations
-void ccontrol_vma_open(struct vm_area_struct *vma)
-{
-	//struct ccontrol_dev *dev = vma->vm_private_data;
-	// WHAT TO DO ?
-}
 
-void ccontrol_vma_close(struct vm_area_struct *vma)
-{
-	//struct ccontrol_dev *dev = vma->vm_private_data;
-	// WHAT TO DO ?
-}
+/* Operations for the colored devices:
+ * on each page fault, the corresponding physical page
+ * is returned.
+ * The page array is set on device creation.
+ */
 
-int ccontrol_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+/* page fault handling. The offset in vmf tell us which page
+ * in the array we should return, making a really fast page fault
+ */
+int colored_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	unsigned long offset = 0;
 	int ret = VM_FAULT_ERROR, err = 0;
-	struct ccontrol_dev *dev = vma->vm_private_data;
+	struct colored_dev *dev = vma->vm_private_data;
 	struct page * page = NULL;
-	unsigned long pfn = 0;
 	vmf->page = NULL;
 
 	offset =(unsigned int)vmf->pgoff;
-	printk(KERN_DEBUG "ccontrol:fault: off=%lu.\n",offset);
-	if(offset >= dev->size)
+	if(offset >= dev->nbpages)
 		goto out;
 
 	page = dev->pages[offset];
-	pfn = page_to_pfn(page);
-	printk(KERN_DEBUG "ccontrol:fault: pfn=%lu,color=%lu.\n",
-			pfn,PFN_TO_COLOR(pfn));
 
 	// insert page into userspace
 	err = vm_insert_page(vma,(unsigned long)vmf->virtual_address,page);
@@ -137,35 +134,29 @@ int ccontrol_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		goto out;
 	ret = VM_FAULT_NOPAGE;
 out:
-	printk(KERN_DEBUG "ccontrol:fault: ret=%d.\n",ret);
-	printk(KERN_DEBUG "ccontrol:fault: page count: %d(%d)\n",page_count(page),page->_count);
 	return ret;
 }
 
-struct vm_operations_struct ccontrol_vm_ops = {
-	.open = ccontrol_vma_open,
-	.close = ccontrol_vma_close,
-	.fault = ccontrol_vma_fault,
+struct vm_operations_struct colored_vm_ops = {
+	.fault = colored_vma_fault,
 };
 
-// Device operations
-
-int ccontrol_open(struct inode *inode, struct file *filp)
+/* on open, we transfer the struct colored_dev to the file pointer */
+int colored_open(struct inode *inode, struct file *filp)
 {
-	struct ccontrol_dev *dev;
-	dev = container_of(inode->i_cdev, struct ccontrol_dev, cdev);
+	struct colored_dev *dev;
+	dev = container_of(inode->i_cdev, struct colored_dev, cdev);
 	filp->private_data = dev;
 	return 0;
 }
 
-int ccontrol_release(struct inode *inode, struct file *filp)
+/* on mmap we check some arguments (size and no MAP_SHARED, then
+ * we transfer control to vma operations and the struct colored_dev
+ * is passed to vma info
+ */
+int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	return 0;
-}
-
-int ccontrol_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	struct ccontrol_dev *dev = filp->private_data;
+	struct colored_dev *dev = filp->private_data;
 	unsigned int size;
 	// check for no offset
 	printk(KERN_INFO "ccontrol: mmap offset %lu.\n",vma->vm_pgoff);
@@ -175,103 +166,385 @@ int ccontrol_mmap(struct file *filp, struct vm_area_struct *vma)
 	// check size is ok
 	size = (vma->vm_end - vma->vm_start)/PAGE_SIZE;
 	printk(KERN_INFO "ccontrol: mmap size %u, available %d.\n",
-			size, dev->size);
-	if(size > dev->size )
+			size, dev->nbpages);
+	if(size > dev->nbpages)
 		return -ENOMEM;
 	// check MAP_SHARED is not asked
 	if(!(vma->vm_flags & VM_SHARED)) {
 		printk(KERN_ERR "ccontrol: you should not ask for a private mapping");
 		return -EPERM;
 	}
-	vma->vm_ops = &ccontrol_vm_ops;
+	vma->vm_ops = &colored_vm_ops;
 	vma->vm_flags |= VM_RESERVED | VM_CAN_NONLINEAR;
 	vma->vm_private_data = filp->private_data;
-	ccontrol_vma_open(vma);
 	return 0;
 }
 
-static struct file_operations ccontrol_fops = {
+static struct file_operations colored_fops = {
 	.owner = THIS_MODULE,
-	.open = ccontrol_open,
-	.release = ccontrol_release,
-	.mmap = ccontrol_mmap,
+	.open = colored_open,
+	.mmap = colored_mmap,
 };
 
-static void ccontrol_setup_dev(struct ccontrol_dev *dev, int index)
+/* devices helpers:
+ */
+int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 {
-	int err, devno = MKDEV(MAJOR(parts_dev),MINOR(parts_dev) + index);
+	int i;
+	unsigned int num = 0;
+	unsigned long pfn;
+	struct page * tmp;
+	/* allocate device */
+	*dev = kmalloc(sizeof(struct colored_dev),GFP_KERNEL);
+	if(*dev == NULL)
+		return -ENOMEM;
+	(*dev)->pages = vmalloc(sizeof(struct page *)*size);
+	if((*dev)->pages == NULL)
+		goto free_dev;
 
-	dev->size = sizes[index];
-	dev->pages = pages[index];
+	(*dev)->nbpages = 0;
+	/* give it pages:
+	 * WARNING: we fail to allocate a device if a single
+	 * color has not enough pages. This is intended behavior:
+	 * we want reproducible allocations, not something leading to
+	 * a color to be too much represented (that would cause unecessary
+	 * conflict misses in cache).*/
+	while(num < size)
+	{
+		for(i = 0; i < LL_NUM_COLORS; i++)
+			if(COLOR_ISSET(i,&cset))
+			{
+				if(nbpages[i] > 0)
+				{
+					nbpages[i]--;
+					(*dev)->pages[num++] = pages[i][nbpages[i]];
+				}
+				else
+					goto free_pages;
+			}
+	}
+	(*dev)->nbpages = num;
+	return 0;
 
-	cdev_init(&dev->cdev,&ccontrol_fops);
-	dev->cdev.owner = THIS_MODULE;
-	dev->cdev.ops = &ccontrol_fops;
-	err = cdev_add(&dev->cdev, devno,1);
-	if(err)
-		printk(KERN_NOTICE "Error %d adding cdev %d.\n",err,index);
+free_pages:
+	for(i = 0; i < num; i++)
+	{
+		tmp = (*dev)->pages[i];
+		pfn = page_to_pfn(tmp);
+		pages[PFN_TO_COLOR(pfn)][nbpages[PFN_TO_COLOR(pfn)]++] = tmp;
+	}
+	vfree((*dev)->pages);
+free_dev:
+	kfree(*dev);
+	return -ENOMEM;
 }
 
-static void cleanup(void)
+void free_colored(struct colored_dev *dev)
+{
+	/* reclaim pages */
+	unsigned int color,i;
+	unsigned long pfn;
+	for(i = 0; i < dev->nbpages; i++)
+	{
+		pfn = page_to_pfn(dev->pages[i]);
+		color = PFN_TO_COLOR(pfn);
+		pages[color][nbpages[color]++] = dev->pages[i];
+	}
+	/* free device */
+	kfree(dev);
+}
+
+/* Control device operations:
+ * only open, close and ioctl are allowed.
+ *
+ * This device receives commands asking for the creation
+ * and deletion of colored devices. These commands
+ * are defined as a set of ioctl.
+ * See the ioctls.h header for their definition.
+ */
+
+/* on open, we transfer the struct colored_dev to the file pointer */
+int control_open(struct inode *inode, struct file *filp)
+{
+	struct control_dev *dev;
+	dev = container_of(inode->i_cdev, struct control_dev, cdev);
+	filp->private_data = dev;
+	return 0;
+}
+
+static int ioctl_new(ioctl_args *arg)
+{
+
+	int err;
+	struct colored_dev *dev;
+	dev_t devno;
+	/* create colored device */
+	err = create_colored(&dev,arg->opts.c, arg->opts.size);
+	if(err) return err;
+
+	/* register it */
+	devno = MKDEV(MAJOR(devices_id),MINOR(devices_id) + nbdevices +1);
+	cdev_init(&dev->cdev,&colored_fops);
+	dev->cdev.owner = THIS_MODULE;
+	dev->cdev.ops = &colored_fops;
+	err = cdev_add(&dev->cdev, devno,1);
+	if(err)
+	{
+		/* cleanup device */
+		free_colored(dev);
+		return err;
+	}
+
+	nbdevices++;
+	/* add it to the list */
+	dev->minor = MINOR(devices_id)+nbdevices;
+	list_add(&(dev->devices),&control.devices);
+
+	/* return device number */
+	arg->dev = devno;
+	return 0;
+}
+
+
+static int ioctl_free(ioctl_args *arg)
+{
+	int found = 0;
+	struct colored_dev *cur,*tmp;
+	/* find colored device */
+	list_for_each_entry_safe(cur,tmp,&control.devices,devices)
+	{
+		if(cur->minor == MINOR(arg->dev))
+		{
+			list_del(&cur->devices);
+			found = 1;
+			break;
+		}
+	}
+	if(!found)
+		return -EINVAL;
+	/* free it */
+	free_colored(cur);
+	return 0;
+}
+
+/* handles ioctl on the device, see ioctls.h for available values */
+int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, unsigned long val)
+{
+	ioctl_args *in,local;
+	unsigned long err;
+	switch(code) {
+		case IOCTL_NEW:
+			/* create a new colored device: val contain a pointer
+			 * to the colorset and the wanted device size
+			 */
+			in = (ioctl_args *)val;
+			err = access_ok(VERIFY_WRITE,in,sizeof(ioctl_args));
+			if(err) return err;
+
+			err = copy_from_user(&local,in,sizeof(ioctl_args));
+			if(err) return err;
+
+			/* now that the params are ok, do real work */
+			err = ioctl_new(&local);
+			if(err) return err;
+
+			/* push back the return value */
+			err = copy_to_user(in,&local,sizeof(ioctl_args));
+			if(err)
+			{
+				/* special case: if we can't give info to the user we
+				 * free the device immediately
+				 */
+				ioctl_free(&local);
+				return err;
+			}
+
+			break;
+		case IOCTL_FREE:
+			/* deletes a device, reclaiming its pages for the module
+			 */
+			in = (ioctl_args *)val;
+			err = access_ok(VERIFY_WRITE,in,sizeof(ioctl_args));
+			if(err) return err;
+
+			err = copy_from_user(&local,in,sizeof(ioctl_args));
+			if(err) return err;
+
+			/* now that the params are ok, do real work */
+			err = ioctl_free(&local);
+			if(err) return err;
+
+			break;
+		default:
+			return -EPERM;
+	}
+	return 0;
+}
+
+static struct file_operations control_fops = {
+	.owner = THIS_MODULE,
+	.open = control_open,
+	.ioctl = control_ioctl,
+};
+
+
+/* module functions,
+ * handle initialization, cleanup, etc
+ */
+
+/* allocates the pages and heads arrays,
+ * uses the number of heads that will be reserved.
+ * NOTE: at most two pages of the same color can appear
+ * in an head.
+ */
+int alloc_pagetable(unsigned int nbh)
+{
+	int i;
+	// just to make sure everything is ok
+	for(i = 0; i < LL_NUM_COLORS; i++)
+		pages[i] = NULL;
+
+	for(i = 0; i < LL_NUM_COLORS; i++)
+	{
+		pages[i] = (struct page **) vmalloc(nbh*2*sizeof(struct page *));
+		if(!pages[i])
+			return -ENOMEM;
+	}
+
+	heads = (struct page **) kmalloc(nbh*sizeof(struct page *),GFP_KERNEL);
+	if(!heads)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/* free in kernel memory used for saving page information.
+ * WARNING: this code expects heads to have already been freed.
+ */
+void clean_pagetable(void)
 {
 	int i;
 	if(heads)
-	{
-		for(i = 0; i < heads_size; i++)
-			__free_pages(heads[i],order);
+		kfree((void *)heads);
 
-		kfree(heads);
+	for(i = 0; i < LL_NUM_COLORS; i++)
+		if(pages[i] != NULL)
+			vfree((void *)pages[i]);
+}
+
+/* allocates the char device numbers and creates the first device */
+int alloc_devices(void)
+{
+	int err;
+	dev_t devno;
+	/* clear control struct */
+	memset(&control,0,sizeof(struct control_dev));
+	INIT_LIST_HEAD(&control.devices);
+
+	/* allocate character device numbers */
+	err = alloc_chrdev_region(&devices_id,0,MAX_DEVICES,"ccontrol");
+	if(err)
+		return err;
+
+	printk(KERN_INFO "ccontrol: Got %d device major.\n",MAJOR(devices_id));
+	printk(KERN_INFO "ccontrol: Allocated %d minor devices, starting from %d.\n",
+		MAX_DEVICES,MINOR(devices_id));
+
+	/* create first device */
+	devno = MKDEV(MAJOR(devices_id),MINOR(devices_id));
+	cdev_init(&control.cdev,&control_fops);
+	control.cdev.owner = THIS_MODULE;
+	control.cdev.ops = &control_fops;
+	err = cdev_add(&control.cdev, devno,1);
+	if(err)
+	{
+		printk(KERN_ERR "Error %d adding control device.\n",err);
+		unregister_chrdev_region(devices_id,MAX_DEVICES);
+		devices_id = DEVICES_DEFAULT_VALUE;
+		return err;
+	}
+	return 0;
+}
+
+/* deletes all devices */
+void clean_devices(void)
+{
+	/* clear all colored devices */
+	struct colored_dev *cur,*tmp;
+	list_for_each_entry_safe(cur,tmp,&control.devices,devices)
+	{
+		/* free each entry and remove it from list */
+		list_del(&cur->devices);
+		cdev_del(&cur->cdev);
+		free_colored(cur);
 	}
 
-	if(pages)
+	/* free the device number region */
+	if(devices_id != DEVICES_DEFAULT_VALUE)
 	{
-		for(i = 0; i < subdivs_size; i++)
-		{
-			if(pages[i])
-				vfree(pages[i]);
+		cdev_del(&control.cdev);
+		unregister_chrdev_region(devices_id,MAX_DEVICES);
+	}
+}
+
+/* reserves physical memory */
+int reserve_memory(unsigned int nbh)
+{
+	int i,j;
+	struct page *page,*nth;
+	unsigned long pfn;
+	unsigned int color;
+	for(i = 0; i < nbh; i++)
+	{
+		// allocate an head
+		page = alloc_pages(GFP_HIGHUSER | __GFP_COMP,order);
+		if(!page) {
+			printk(KERN_INFO
+				"ccontrol: failed to get a page");
+			return -ENOMEM;
 		}
-		kfree(pages);
+		heads[nbheads++] = page;
+		// split the head into colors
+		for(j = 0; j < 1<<order; j++)
+		{
+			nth = nth_page(page,j);
+			pfn = page_to_pfn(nth);
+			color = PFN_TO_COLOR(pfn);
+			pages[color][nbpages[color]++] = nth;
+		}
 	}
-	if(sizes)
-		kfree(sizes);
+	return 0;
+}
 
-	if(ccontrol_devices)
-		kfree(ccontrol_devices);
+/* frees physical memory */
+void free_memory(void)
+{
+	int i;
+	if(heads)
+		for(i = 0; i < nbheads; i++)
+			__free_pages(heads[i],order);
+}
 
-	if(parts_dev)
-		unregister_chrdev_region(parts_dev,subdivs_size);
+void cleanup(void)
+{
+	clean_devices();
+	free_memory();
+	clean_pagetable();
 }
 
 static int __init init(void)
 {
-	int i,j,k;
 	int err = 0;
-	unsigned long pfn;
-	struct page *page,*nth;
-	unsigned int sum;
-	unsigned int color;
 	unsigned int blocks;
 	printk("ccontrol: started !\n");
-	// check parameters
-	order = get_order(MAX_SUBDIVISIONS*PAGE_SIZE);
+	order = get_order(LL_NUM_COLORS*PAGE_SIZE);
 	if(order < 0)
 	{
 		printk(KERN_ERR "ccontrol: cannot find a good physical page block size.\n");
-		err = -EPERM;
-		goto error;
+		return -EPERM;
 	}
-	printk(KERN_ERR "ccontrol: each block is %lu ko wide.\n",(PAGE_SIZE * (1<<order))/1024);
-	// the sum of subdivs must be MAX_SUBDIVS
-	sum = 0;
-	for(i= 0; i< subdivs_size; i++)
-		sum += subdivs[i];
+	printk(KERN_INFO "ccontrol: each block is %lu ko wide.\n",(PAGE_SIZE * (1<<order))/1024);
 
-	if(sum != MAX_SUBDIVISIONS)
-	{
-		printk(KERN_ERR "ccontrol: wrong subdivs parameter, must sum to %lu.\n",MAX_SUBDIVISIONS);
-		err = -EPERM;
-		goto error;
-	}
 	// compute the number of blocks we should allocate to reserve enough memory.
 	blocks = mem / (PAGE_SIZE * (1<<order));
 	if(blocks * (PAGE_SIZE * (1<<order)) < mem)
@@ -279,99 +552,19 @@ static int __init init(void)
 
 	printk(KERN_DEBUG "ccontrol: will allocate %d blocks of order %d.\n",blocks,order);
 
-	// create devices
-	err = alloc_chrdev_region(&parts_dev,0,subdivs_size,"ccontrol");
+	err = alloc_pagetable(blocks);
+	if(err)
+		goto error;
+	printk(KERN_DEBUG "ccontrol: pages table correctly allocated.\n");
+
+	err = reserve_memory(blocks);
 	if(err)
 		goto error;
 
-	printk(KERN_INFO "ccontrol: Got %d device major.\n",MAJOR(parts_dev));
-	printk(KERN_INFO "ccontrol: Created %d minor devices, starting from %d.\n",
-		subdivs_size,MINOR(parts_dev));
-
-	// allocate pages table
-	sizes = kmalloc(subdivs_size*sizeof(unsigned int),GFP_KERNEL);
-	if(!sizes)
-	{
-		err = -ENOMEM;
+	err = alloc_devices();
+	if(err)
 		goto error;
-	}
-	for(i = 0; i < subdivs_size; i++)
-		sizes[i] = 0;
-
-	pages = kmalloc(subdivs_size*sizeof(struct page**),GFP_KERNEL);
-	if(!pages)
-	{
-		err = -ENOMEM;
-		goto error;
-	}
-
-	for(i = 0; i< subdivs_size; i++)
-	{
-		pages[i] = vmalloc(blocks*2*subdivs[i]*sizeof(struct page*));
-		if(!pages[i])
-		{
-			err = -ENOMEM;
-			for(i = i-1;i>=0; i--)
-				vfree(pages[i]);
-			goto error;
-		}
-	}
-	heads = kmalloc(blocks*sizeof(struct page *),GFP_KERNEL);
-	if(!heads)
-	{
-		err = -ENOMEM;
-		goto error;
-	}
-	printk(KERN_DEBUG "ccontrol: pages table correctly allocated.\n");
-	init_colormap();
-	for(i = 0; i < blocks; i++)
-	{
-		// allocate a page
-		page = alloc_pages(GFP_HIGHUSER | __GFP_COMP,order);
-		if(!page) {
-			printk(KERN_INFO
-				"ccontrol: failed to get a page");
-			err = -ENOMEM;
-			goto error;
-		}
-		heads[heads_size++] = page;
-		pfn = page_to_pfn(page);
-		color = PFN_TO_COLOR(pfn);
-		printk(KERN_DEBUG "ccontrol: pfn %lu obtained, color %u.\n",pfn,color);
-		// distribute the whole order among subdivisions
-		for(j = 0; j < 1<<order; j++)
-		{
-			nth = nth_page(page,j);
-			pfn = page_to_pfn(nth);
-			color = PFN_TO_COLOR(pfn);
-			// find to which subdiv is this color
-			k = colormap[color];
-			pages[k][sizes[k]] = nth;
-			sizes[k]++;
-			printk(KERN_DEBUG "ccontrol: %lu is %dth page of part %d, color %u.\n",
-						pfn,sizes[k]-1,k,color);
-		}
-	}
-
-	// allocate dev structs
-	ccontrol_devices = kmalloc(subdivs_size*sizeof(struct ccontrol_dev),GFP_KERNEL);
-	if(!ccontrol_devices)
-	{
-		err = -ENOMEM;
-		goto error;
-	}
-	memset(ccontrol_devices,0,subdivs_size*sizeof(struct ccontrol_dev));
-	for(i = 0; i < subdivs_size; i++)
-		ccontrol_setup_dev(ccontrol_devices+i,i);
-
-	// display memory info
-	printk(KERN_INFO "ccontrol: %d devices available.\n",subdivs_size);
-	for(i = 0; i< subdivs_size; i++)
-	{
-		printk(KERN_INFO "ccontrol: %d %lu %lu (subdiv,KB avail,KB cachesize).\n",i,
-				sizes[i]*PAGE_SIZE/1024,
-				subdivs[i]*PAGE_SIZE*LL_CACHE_ASSOC/1024);
-	}
+	printk("ccontrol: correctly initialized.\n");
 	return 0;
 error:
 	cleanup();
@@ -381,7 +574,7 @@ error:
 static void __exit exit(void)
 {
 	cleanup();
-	printk(KERN_INFO "ccontrol: stoped !\n");
+	printk("ccontrol: stopped !\n");
 }
 
 /* Kernel Macros
