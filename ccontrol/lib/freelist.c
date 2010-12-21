@@ -10,7 +10,8 @@
 #include"freelist.h"
 
 /* this freelist is a classical in memory allocator:
- * the start of the memory contains a dummy fl.
+ * the start of the memory contains a dummy fl:
+ * head.size gives the available size.
  * it saves the size of available memory and the head
  * of the fl.
  *
@@ -70,6 +71,20 @@ static fl* fl_findprevious(fl *head, fl *f)
 	return prev;
 }
 
+/* initialize the memory zone as if it was the beginning of the memory region,
+ * no argument checking.*/
+int fl_init(void *z, size_t size)
+{
+	fl *head,*next;
+	head = (fl *)z;
+	next = head+1;
+	next->size = size - sizeof(head);
+	next->next = NULL;
+	head->size = size - sizeof(head);
+	head->next = next;
+	return 0;
+}
+
 void *fl_allocate(void *z, size_t size)
 {
 	fl *f,*prev,*head;
@@ -101,6 +116,8 @@ void *fl_allocate(void *z, size_t size)
 		f->size = size;
 		p = FL_TO_VOID(f);
 	}
+	/* update head size */
+	head->size -= size;
 	return p;
 }
 
@@ -112,6 +129,7 @@ void fl_free(void *z, void *p)
 	f->next = NULL;
 	head = (fl *)z;
 
+	head->size += f->size;
 	/* this function also merge the newly free region
 	 * with the other ones
 	 */
