@@ -25,8 +25,8 @@
 // linked list
 #include <linux/list.h>
 // cache info
-#include "cache.h"
-#include "../lib/colorset.h"
+#include "cache_info.h"
+#include "colorset.h"
 #include "ioctls.h"
 MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
 MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical adress range.");

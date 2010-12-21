@@ -16,13 +16,16 @@
 # using /sys to discover cache info.
 # this program could be improved, especially to discover and define enough
 # info on architecture having less levels
-rm cache.h
+out="cache_info.h"
+if [ -f $out ]; then
+	rm $out
+fi
 cpu=0
 sys_path="/sys/devices/system/cpu/cpu$cpu/cache"
 last_level=`ls $sys_path | sort -n | tail -n 1`
 line_size=`cat $sys_path/$last_level/coherency_line_size`
 echo "line size: $line_size"
-cat >> cache.h <<END
+cat >> $out <<END
 /*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -47,7 +50,7 @@ ll_cache_size=`echo "$ll_cache_size * 1024" | bc`
 ll_assoc=`cat $sys_path/$last_level/ways_of_associativity`
 echo "ll cache size: $ll_cache_size"
 echo "ll assoc: $ll_assoc"
-cat >> cache.h <<END
+cat >> $out <<END
 
 #define LL_CACHE_SIZE ($ll_cache_size)
 #define LL_CACHE_ASSOC ($ll_assoc)
@@ -74,7 +77,7 @@ if [ $ll_level -ne 2 ]; then
 END
 fi
 
-cat >> cache.h <<END
+cat >> $out <<END
 /* the number of colors is defined by C/AP */
 #define MAX_SUBDIVISIONS LL_NUM_COLORS
 

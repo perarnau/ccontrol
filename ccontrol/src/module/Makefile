@@ -1,5 +1,5 @@
 obj-m = ccontrol.o
-
+EXTRA_CFLAGS += -I$(PWD)/../commons/
 M=$(shell pwd)
 
 all:
