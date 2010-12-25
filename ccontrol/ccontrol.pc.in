@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libccontrol
+Description: A library to allocate cache colored memory
+Version: @VERSION@
+URL: http://ccontrol.ligforge.imag.fr
+Requires:
+Libs: -L${libdir} -lccontrol
+Cflags: -I${includedir}

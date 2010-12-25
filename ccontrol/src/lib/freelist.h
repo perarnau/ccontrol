@@ -11,7 +11,6 @@
 #define FREELIST_H 1
 
 #include<stdlib.h>
-#include"zone.h"
 
 /* a free list elt, indicating a free slot inside
  * a zone.

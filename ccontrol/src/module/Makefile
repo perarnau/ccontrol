@@ -7,3 +7,6 @@ all:
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(M) clean
+
+check:
+	exit 0
