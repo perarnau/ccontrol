@@ -27,14 +27,11 @@
  * - free: contains dev on input
  */
 
-struct new_in {
+typedef struct cc_args {
+	int major;
+	int minor;
 	unsigned int size;
 	color_set c;
-};
-
-typedef union{
-	struct new_in opts;
-	dev_t dev;
 } ioctl_args;
 
 #define IOCTL_NEW _IOWR(MAJOR_NUM,0,ioctl_args *)

@@ -279,7 +279,7 @@ static int ioctl_new(ioctl_args *arg)
 	struct colored_dev *dev;
 	dev_t devno;
 	/* create colored device */
-	err = create_colored(&dev,arg->opts.c, arg->opts.size);
+	err = create_colored(&dev,arg->c, arg->size);
 	if(err) return err;
 
 	/* register it */
@@ -301,7 +301,9 @@ static int ioctl_new(ioctl_args *arg)
 	list_add(&(dev->devices),&control.devices);
 
 	/* return device number */
-	arg->dev = devno;
+	memset(arg,0,sizeof(ioctl_args));
+	arg->major = MAJOR(devno);
+	arg->minor = MINOR(devno);
 	return 0;
 }
 
@@ -313,7 +315,7 @@ static int ioctl_free(ioctl_args *arg)
 	/* find colored device */
 	list_for_each_entry_safe(cur,tmp,&control.devices,devices)
 	{
-		if(cur->minor == MINOR(arg->dev))
+		if(cur->minor == arg->minor)
 		{
 			list_del(&cur->devices);
 			found = 1;
@@ -330,26 +332,23 @@ static int ioctl_free(ioctl_args *arg)
 /* handles ioctl on the device, see ioctls.h for available values */
 int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, unsigned long val)
 {
-	ioctl_args *in,local;
-	unsigned long err;
+	void __user *argp = (void __user *)val;
+	ioctl_args local;
+	int err;
 	switch(code) {
 		case IOCTL_NEW:
 			/* create a new colored device: val contain a pointer
 			 * to the colorset and the wanted device size
 			 */
-			in = (ioctl_args *)val;
-			err = access_ok(VERIFY_WRITE,in,sizeof(ioctl_args));
-			if(err) return err;
-
-			err = copy_from_user(&local,in,sizeof(ioctl_args));
-			if(err) return err;
+			err = copy_from_user(&local,argp,sizeof(ioctl_args));
+			if(err) return -EFAULT;
 
 			/* now that the params are ok, do real work */
 			err = ioctl_new(&local);
 			if(err) return err;
 
 			/* push back the return value */
-			err = copy_to_user(in,&local,sizeof(ioctl_args));
+			err = copy_to_user(argp,(void *)&local,sizeof(ioctl_args));
 			if(err)
 			{
 				/* special case: if we can't give info to the user we
@@ -363,12 +362,8 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 		case IOCTL_FREE:
 			/* deletes a device, reclaiming its pages for the module
 			 */
-			in = (ioctl_args *)val;
-			err = access_ok(VERIFY_WRITE,in,sizeof(ioctl_args));
-			if(err) return err;
-
-			err = copy_from_user(&local,in,sizeof(ioctl_args));
-			if(err) return err;
+			err = copy_from_user(&local,argp,sizeof(ioctl_args));
+			if(err) return -EFAULT;
 
 			/* now that the params are ok, do real work */
 			err = ioctl_free(&local);

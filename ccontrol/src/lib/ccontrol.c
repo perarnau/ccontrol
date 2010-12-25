@@ -8,9 +8,8 @@
  * Author: Swann Perarnau <swann.perarnau@imag.fr>
  */
 #include"ccontrol.h"
-#include"zone.h"
 #include"freelist.h"
-#include"../module/ioctls.h"
+#include"ioctls.h"
 
 #include<fcntl.h>
 #include<stdio.h>
@@ -33,11 +32,22 @@ struct ccontrol_zone {
 	dev_t dev; /* the device number of the zone */
 };
 
+struct ccontrol_zone * ccontrol_new_zone(void)
+{
+	return calloc(1,sizeof(struct ccontrol_zone));
+}
+
+void ccontrol_free_zone(struct ccontrol_zone *p)
+{
+	free(p);
+}
+
 int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, unsigned int size)
 {
 	int fd_cc,err = 0;
 	ioctl_args io_args;
 	char filename[DEVICE_NAMELENGTH];
+	dev_t dev;
 	if(z == NULL || c == NULL)
 		return 1;
 	/* open the module control device */
@@ -48,8 +58,8 @@ int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, unsigned int siz
 		return 1;
 	}
 	/* tell him to create a new zone */
-	io_args.opts.size = size;
-	io_args.opts.c = *c;
+	io_args.size = size;
+	io_args.c = *c;
 	err = ioctl(fd_cc,IOCTL_NEW,&io_args);
 	if(err == -1)
 	{
@@ -59,8 +69,9 @@ int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, unsigned int siz
 	}
 	/* on succes, we need to create the device and mmap to it */
 	/* create a name */
-	snprintf(filename,DEVICE_NAMELENGTH,"%s%d",DEVICE_NAMEPREFIX,minor(io_args.dev));
-	err = mknod(filename,S_IFCHR,io_args.dev);
+	snprintf(filename,DEVICE_NAMELENGTH,"%s%d",DEVICE_NAMEPREFIX,io_args.minor);
+	dev = makedev(io_args.major,io_args.minor);
+	err = mknod(filename,S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,dev);
 	if(err == -1)
 	{
 		perror("module color device mknod:");
@@ -86,7 +97,7 @@ int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, unsigned int siz
 	/* initialize the freelist */
 	fl_init(z->p,size);
 	z->size = size;
-	z->dev = io_args.dev;
+	z->dev = dev;
 	err = 0;
 	goto close_control;
 
@@ -132,11 +143,12 @@ int ccontrol_destroy_zone(struct ccontrol_zone *z)
 		return 1;
 	}
 	/* create a name */
-	snprintf(filename,DEVICE_NAMELENGTH,"%s%d",DEVICE_NAMEPREFIX,minor(io_args.dev));
+	snprintf(filename,DEVICE_NAMELENGTH,"%s%d",DEVICE_NAMEPREFIX,minor(z->dev));
 	/* unlink it */
 	unlink(filename);
 	/* now destroy the device */
-	io_args.dev = z->dev;
+	io_args.major = major(z->dev);
+	io_args.minor = minor(z->dev);
 	err = ioctl(fd_cc,IOCTL_FREE,&io_args);
 	if(err == -1)
 	{
