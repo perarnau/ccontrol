@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <error.h>
+#include <assert.h>
 
 #include <ccontrol.h>
 /* random number generator: a bad one but good enough for
@@ -20,14 +21,14 @@ int myseed(unsigned int s) {
 /* we are forced to print a sum to stop gcc from removing the whole code */
 void writes(char *array, unsigned int nbwrites, unsigned int size) {
 	char *p;
-	unsigned long sum = 0;
+	volatile unsigned long sum = 0;
 	unsigned int i,j;
 	myseed(1);
 	for(j= 0;j < nbwrites;j++) {
 		unsigned int t = myrand(size);
 		sum += array[t];
 	}
-	fprintf(stderr,"sum: %lu.\n",sum);
+	//fprintf(stderr,"sum: %lu.\n",sum);
 }
 
 int main(int argc, char** argv) {
@@ -53,9 +54,11 @@ int main(int argc, char** argv) {
 		COLOR_SET(i,&c);
 
 	z = ccontrol_new_zone();
+	assert(z!=NULL);
 	i = ccontrol_create_zone(z,&c,size);
+	assert(i==0);
 	t = ccontrol_malloc(z,size);
-
+	assert(t!=NULL);
 	writes(t,accesses,size);
 
 	ccontrol_free(z,t);
