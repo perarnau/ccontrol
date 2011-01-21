@@ -34,14 +34,14 @@ struct ccontrol_zone {
 
 struct ccontrol_zone * ccontrol_new_zone(void)
 {
-	struct ccontrol_zone *p;
-	p = (struct ccontrol_zone *) malloc(sizeof(p));
-	if(p == NULL)
+	struct ccontrol_zone *z;
+	z = (struct ccontrol_zone *) malloc(sizeof(struct ccontrol_zone));
+	if(z == NULL)
 		return NULL;
-	p->fd = -1;
-	p->p = NULL;
-	p->size = 0;
-	return p;
+	z->fd = -1;
+	z->p = NULL;
+	z->size = 0;
+	return z;
 }
 
 void ccontrol_free_zone(struct ccontrol_zone *p)
