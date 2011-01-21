@@ -198,6 +198,11 @@ int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 	*dev = kmalloc(sizeof(struct colored_dev),GFP_KERNEL);
 	if(*dev == NULL)
 		return -ENOMEM;
+	/* convert size to num pages */
+	if(size % PAGE_SIZE != 0)
+		size += PAGE_SIZE - (size % PAGE_SIZE);
+	size = size / PAGE_SIZE;
+
 	(*dev)->pages = vmalloc(sizeof(struct page *)*size);
 	if((*dev)->pages == NULL)
 		goto free_dev;
