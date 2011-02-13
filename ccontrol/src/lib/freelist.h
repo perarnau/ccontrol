@@ -30,7 +30,8 @@ typedef struct fl_elt fl;
  * Since our allocator uses a dummy head, we need a full struct
  * plus the overhead of a single allocation.
  */
-#define ALLOCATOR_OVERHEAD (sizeof(fl) + HEADER_SIZE);
+#define ALIGN_MASK (sizeof(fl)-((size_t)1))
+#define ALLOCATOR_OVERHEAD ((sizeof(fl) + HEADER_SIZE + ALIGN_MASK) & ~ALIGN_MASK)
 /* free_list code: a free_list is a list of free memory regions
  * inside a zone. It is managed inside the zone memory.
  */
@@ -44,4 +45,5 @@ void *fl_allocate(void *z, size_t size);
 
 void fl_free(void *z, void *p);
 
+void *fl_realloc(void *z, void *p, size_t size);
 #endif /* FREELIST_H */

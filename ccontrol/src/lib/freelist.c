@@ -8,7 +8,7 @@
  * Author: Swann Perarnau <swann.perarnau@imag.fr>
  */
 #include"freelist.h"
-
+#include<string.h>
 /* this freelist is a classical in memory allocator:
  * the start of the memory contains a dummy fl:
  * head.size gives the available size.
@@ -24,12 +24,10 @@
  * size and be aligned on the struct. */
 static size_t fl_adjustsize(size_t size)
 {
-	/* we need a header for free */
-	size += HEADER_SIZE;
-	/* align alloc on sizeof(fl) */
-	if(size % sizeof(fl) != 0)
-		size += sizeof(fl) - (size % sizeof(fl));
-	return size;
+	if(size < HEADER_SIZE)
+		return sizeof(fl);
+	else
+		return ((size + HEADER_SIZE + ALIGN_MASK) & ~ALIGN_MASK);
 }
 
 /* find an adequate region for allocation,
@@ -157,4 +155,27 @@ void fl_free(void *z, void *p)
 		f->size += next->size;
 		f->next = next->next;
 	}
+}
+
+void *fl_realloc(void *z, void *p, size_t size)
+{
+	void *ret;
+	fl *f;
+	if(p == NULL)
+		return fl_allocate(z,size);
+
+	if(size == 0)
+	{
+		fl_free(z,p);
+		return NULL;
+	}
+
+	ret = fl_allocate(z,size);
+	if(ret != NULL)
+	{
+		f = VOID_TO_FL(p);
+		ret = memcpy(ret,p,f->size);
+		fl_free(z,p);
+	}
+	return ret;
 }
