@@ -32,8 +32,9 @@ MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
 MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical adress range.");
 MODULE_LICENSE("GPL");
 
-static unsigned long mem = 1<<10;
-module_param(mem,ulong,0);
+static unsigned long memory = 0;
+static char *mem = "1k";
+module_param(mem,charp,0);
 MODULE_PARM_DESC(mem,"How much memory should I reserve in RAM.");
 /* need it global because of cleanup code */
 static unsigned int order = 0;
@@ -207,6 +208,7 @@ int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 	if((*dev)->pages == NULL)
 		goto free_dev;
 
+	printk(KERN_INFO "ccontrol: allocating %u pages to new device.\n",size);
 	(*dev)->nbpages = 0;
 	/* give it pages:
 	 * WARNING: we fail to allocate a device if a single
@@ -229,6 +231,7 @@ int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 			}
 	}
 	(*dev)->nbpages = num;
+	printk(KERN_INFO "ccontrol: new device ready, %u pages in it.\n",num);
 	return 0;
 
 free_pages:
@@ -249,6 +252,7 @@ void free_colored(struct colored_dev *dev)
 	/* reclaim pages */
 	unsigned int color,i;
 	unsigned long pfn;
+	printk(KERN_INFO "ccontrol: freeing device with %u pages.\n",dev->nbpages);
 	for(i = 0; i < dev->nbpages; i++)
 	{
 		pfn = page_to_pfn(dev->pages[i]);
@@ -283,6 +287,7 @@ static int ioctl_new(ioctl_args *arg)
 	int err;
 	struct colored_dev *dev;
 	dev_t devno;
+	printk(KERN_INFO "ccontrol: ioctl, new device asked.\n");
 	/* create colored device */
 	err = create_colored(&dev,arg->c, arg->size);
 	if(err) return err;
@@ -317,6 +322,7 @@ static int ioctl_free(ioctl_args *arg)
 {
 	int found = 0;
 	struct colored_dev *cur,*tmp;
+	printk(KERN_INFO "ccontrol: ioctl, asked to remove device.\n");
 	/* find colored device */
 	list_for_each_entry_safe(cur,tmp,&control.devices,devices)
 	{
@@ -545,9 +551,12 @@ static int __init init(void)
 	}
 	printk(KERN_INFO "ccontrol: each block is %lu ko wide.\n",(PAGE_SIZE * (1<<order))/1024);
 
+	/* parse mem into a memory size */
+	memory = memparse(mem,NULL);
+
 	// compute the number of blocks we should allocate to reserve enough memory.
-	blocks = mem / (PAGE_SIZE * (1<<order));
-	if(blocks * (PAGE_SIZE * (1<<order)) < mem)
+	blocks = memory / (PAGE_SIZE * (1<<order));
+	if(blocks * (PAGE_SIZE * (1<<order)) < memory)
 		blocks++;
 
 	printk(KERN_DEBUG "ccontrol: will allocate %d blocks of order %d.\n",blocks,order);
