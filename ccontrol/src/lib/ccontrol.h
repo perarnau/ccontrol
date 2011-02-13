@@ -26,6 +26,10 @@
  * authorized and how to discuss with its module */
 struct ccontrol_zone;
 
+/* environment variables names */
+#define CCONTROL_ENV_COLORS "CCONTROL_COLORS"
+#define CCONTROL_ENV_SIZE "CCONTROL_SIZE"
+
 /* allocates a zone */
 struct ccontrol_zone * ccontrol_new_zone(void);
 
@@ -48,5 +52,8 @@ void *ccontrol_malloc(struct ccontrol_zone *, size_t);
 
 /* Frees memory from the zone. */
 void ccontrol_free(struct ccontrol_zone *, void *);
+
+/* realloc memory */
+void *ccontrol_realloc(struct ccontrol_zone *, void *, size_t);
 
 #endif /* CCONTROL_H */

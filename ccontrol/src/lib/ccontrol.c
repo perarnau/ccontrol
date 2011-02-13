@@ -13,6 +13,7 @@
 
 #include<fcntl.h>
 #include<stdio.h>
+#include<string.h>
 #include<sys/ioctl.h>
 #include<sys/mman.h>
 #include<sys/types.h>
@@ -31,6 +32,9 @@ struct ccontrol_zone {
 	unsigned int size; /* the size of the mmap */
 	dev_t dev; /* the device number of the zone */
 };
+
+/* needed by libc_bypass code */
+struct ccontrol_zone local_zone = { -1, NULL, 0};
 
 struct ccontrol_zone * ccontrol_new_zone(void)
 {
@@ -169,10 +173,22 @@ int ccontrol_destroy_zone(struct ccontrol_zone *z)
 /* allocates memory inside the zone, use the freelist backend */
 void *ccontrol_malloc(struct ccontrol_zone *z, size_t size)
 {
+	if(z == NULL)
+		return NULL;
 	return fl_allocate(z->p,size);
 }
 
 void ccontrol_free(struct ccontrol_zone *z, void *ptr)
 {
+	if(z == NULL)
+		return NULL;
 	fl_free(z->p,ptr);
 }
+
+void *ccontrol_realloc(struct ccontrol_zone *z, void *ptr, size_t size)
+{
+	if(z == NULL)
+		return NULL;
+	return fl_realloc(z->p,ptr,size);
+}
+
