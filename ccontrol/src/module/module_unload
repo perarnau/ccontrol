@@ -6,9 +6,9 @@ module="ccontrol"
 device="ccontrol"
 
 # invode rmmod with all args
-/sbin/rmmod $module $* || exit 1
+/sbin/rmmod $module
 
 # remove nodes
-rm -f /dev/${device}[0-8]
+rm -f /dev/${device}*
 
 exit 0

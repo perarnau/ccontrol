@@ -1,0 +1,50 @@
+This directory contains all the ccontrol project.
+
+Cache Control allows an application to restrict any dynamic memory allocation to a partition
+of the cache.
+
+This tool works by loading custom code into the Linux kernel (using a module) that will
+reserve memory and exports it to the user using virtual devices. The cache partitioning
+is guarantied by page coloring (giving physical pages that fall in the same part of cache).
+
+This tool does not work on fully associative caches.
+
+
+Compiling:
+
+The classical ./configure ; make ; make install should work
+This project has no dependencies except for the linux kernel headers
+necessary to compile the kernel module.
+
+WARNING: currently the kernel module needs "detect_cache.sh" to be run prior
+to running make (it will try to detect your cache characteristics, check the
+result file "cache_info.h" to ensure correct working.
+
+Running:
+
+You need to load the module into memory while specifying how much memory
+the module should reserve for its usage.
+
+	sudo module_load mem=<memory size to reserve (in B)>
+
+Any memory you reserve for the module will be unavailable to the rest of the system (be careful
+to not trigger the OOM killer by reserving too much memory). The module does not support swapping
+allocated pages.
+
+Unloading:
+	sudo module_unload
+
+How much memory can I get:
+	As much as there is physical memory in your system.
+
+New colored memory area are created by ioctls, the libccontrol provides a easier interface
+to use the kernel module.
+
+Using in applications:
+
+	Use the libccontrol to allocate special colored memory area that will use the cache colors
+	you specified.
+
+NOTES:
+	modinfo on the module will display the parameters and a small desc.
+	The module dump some useful info to syslog. Type 'dmesg' to display it. 
