@@ -78,9 +78,9 @@ int fl_init(void *z, size_t size)
 	fl *head,*next;
 	head = (fl *)z;
 	next = head+1;
-	next->size = size - sizeof(head);
+	next->size = size - sizeof(*head);
 	next->next = NULL;
-	head->size = size - sizeof(head);
+	head->size = size - sizeof(*head);
 	head->next = next;
 	return 0;
 }
@@ -103,7 +103,7 @@ void *fl_allocate(void *z, size_t size)
 		return NULL;
 
 	/* update the zone */
-	if(f->size == size)
+	if(f->size - size < sizeof(fl))
 	{
 		prev->next = f->next;
 		p = FL_TO_VOID(f);
@@ -125,6 +125,9 @@ void *fl_allocate(void *z, size_t size)
 void fl_free(void *z, void *p)
 {
 	fl *f,*prev,*next,*head;
+	if(p == NULL)
+		return;
+
 	f = VOID_TO_FL(p);
 	f->next = NULL;
 	head = (fl *)z;
