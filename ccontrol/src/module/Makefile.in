@@ -1,5 +1,5 @@
 obj-m = ccontrol.o
-EXTRA_CFLAGS += -I$(PWD)/../commons/
+EXTRA_CFLAGS += -I@abs_top_srcdir@/src/commons/
 M=$(shell pwd)
 
 all: cache_info.h module
