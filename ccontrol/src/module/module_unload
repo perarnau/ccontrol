@@ -5,7 +5,7 @@ set -x
 module="ccontrol"
 device="ccontrol"
 
-# invode rmmod with all args
+# invoke rmmod with all args
 /sbin/rmmod $module
 
 # remove nodes

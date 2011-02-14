@@ -4,7 +4,7 @@
  * published by the Free Software Foundation, version 2 of the
  * License.
  *
- * Kernel Module to reserve physical adress ranges for future mmap.
+ * Kernel Module to reserve physical address ranges for future mmap.
  *
  * Copyright (C) 2010 Swann Perarnau
  * Author: Swann Perarnau <swann.perarnau@imag.fr>
@@ -29,7 +29,7 @@
 #include "colorset.h"
 #include "ioctls.h"
 MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
-MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical adress range.");
+MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical address range.");
 MODULE_LICENSE("GPL");
 
 static unsigned long memory = 0;
