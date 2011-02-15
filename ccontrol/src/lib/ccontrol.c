@@ -36,7 +36,7 @@ struct ccontrol_zone {
 /* needed by libc_bypass code */
 struct ccontrol_zone local_zone = { -1, NULL, 0};
 
-struct ccontrol_zone * ccontrol_new_zone(void)
+struct ccontrol_zone * ccontrol_new(void)
 {
 	struct ccontrol_zone *z;
 	z = (struct ccontrol_zone *) malloc(sizeof(struct ccontrol_zone));
@@ -48,7 +48,7 @@ struct ccontrol_zone * ccontrol_new_zone(void)
 	return z;
 }
 
-void ccontrol_free_zone(struct ccontrol_zone *p)
+void ccontrol_delete(struct ccontrol_zone *p)
 {
 	free(p);
 }

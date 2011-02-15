@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	for(i = 0; i < 32; i++)
 		COLOR_SET(i,&c);
 
-	z = ccontrol_new_zone();
+	z = ccontrol_new();
 	assert(z!=NULL);
 	i = ccontrol_create_zone(z,&c,size);
 	assert(i==0);
@@ -63,6 +63,6 @@ int main(int argc, char** argv) {
 
 	ccontrol_free(z,t);
 	ccontrol_destroy_zone(z);
-	ccontrol_free_zone(z);
+	ccontrol_delete(z);
 	return 0;
 }

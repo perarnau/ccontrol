@@ -31,10 +31,10 @@ struct ccontrol_zone;
 #define CCONTROL_ENV_SIZE "CCONTROL_SIZE"
 
 /* allocates a zone */
-struct ccontrol_zone * ccontrol_new_zone(void);
+struct ccontrol_zone * ccontrol_new(void);
 
 /* frees a zone */
-void ccontrol_free_zone(struct ccontrol_zone *);
+void ccontrol_delete(struct ccontrol_zone *);
 
 /* Creates a new memory colored zone.
  * Needs a color set and a total size.
