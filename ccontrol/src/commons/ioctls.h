@@ -30,7 +30,7 @@
 typedef struct cc_args {
 	int major;
 	int minor;
-	unsigned int size;
+	size_t size;
 	color_set c;
 } ioctl_args;
 

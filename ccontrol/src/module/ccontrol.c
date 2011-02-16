@@ -158,7 +158,7 @@ int colored_open(struct inode *inode, struct file *filp)
 int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct colored_dev *dev = filp->private_data;
-	unsigned int size;
+	size_t size;
 	// check for no offset
 	printk(KERN_INFO "ccontrol: mmap offset %lu.\n",vma->vm_pgoff);
 	if(vma->vm_pgoff != 0)
@@ -166,7 +166,7 @@ int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	// check size is ok
 	size = (vma->vm_end - vma->vm_start)/PAGE_SIZE;
-	printk(KERN_INFO "ccontrol: mmap size %u, available %d.\n",
+	printk(KERN_INFO "ccontrol: mmap size %zu, available %d.\n",
 			size, dev->nbpages);
 	if(size > dev->nbpages)
 		return -ENOMEM;
@@ -189,10 +189,10 @@ static struct file_operations colored_fops = {
 
 /* devices helpers:
  */
-int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
+int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 {
 	int i;
-	unsigned int num = 0;
+	size_t num = 0;
 	unsigned long pfn;
 	struct page * tmp;
 	/* allocate device */
@@ -208,7 +208,7 @@ int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 	if((*dev)->pages == NULL)
 		goto free_dev;
 
-	printk(KERN_INFO "ccontrol: allocating %u pages to new device.\n",size);
+	printk(KERN_INFO "ccontrol: allocating %zu pages to new device.\n",size);
 	(*dev)->nbpages = 0;
 	/* give it pages:
 	 * WARNING: we fail to allocate a device if a single
@@ -231,7 +231,7 @@ int create_colored(struct colored_dev **dev, color_set cset, unsigned int size)
 			}
 	}
 	(*dev)->nbpages = num;
-	printk(KERN_INFO "ccontrol: new device ready, %u pages in it.\n",num);
+	printk(KERN_INFO "ccontrol: new device ready, %zu pages in it.\n",num);
 	return 0;
 
 free_pages:

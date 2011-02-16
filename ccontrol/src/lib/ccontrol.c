@@ -29,7 +29,7 @@
 struct ccontrol_zone {
 	int fd; /* the file description associated with the mmap */
 	void *p; /* the pointer to the beginning of the mmap */
-	unsigned int size; /* the size of the mmap */
+	size_t size; /* the size of the mmap */
 	dev_t dev; /* the device number of the zone */
 };
 
@@ -53,7 +53,7 @@ void ccontrol_delete(struct ccontrol_zone *p)
 	free(p);
 }
 
-int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, unsigned int size)
+int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, size_t size)
 {
 	int fd_cc,err = 0;
 	ioctl_args io_args;

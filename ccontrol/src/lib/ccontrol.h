@@ -39,7 +39,7 @@ void ccontrol_delete(struct ccontrol_zone *);
 /* Creates a new memory colored zone.
  * Needs a color set and a total size.
  * Return 0 on success. */
-int ccontrol_create_zone(struct ccontrol_zone *, color_set *, unsigned int size);
+int ccontrol_create_zone(struct ccontrol_zone *, color_set *, size_t);
 
 /* Destroys a zone.
  * Any allocation done inside it will no longer work.

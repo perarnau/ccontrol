@@ -67,26 +67,28 @@ static int parse_color_list(color_set *c, char *str)
 }
 
 /* parse size as an unsigned long possibly suffixed by k,m, or g */
-static int parse_size(char *str, unsigned long *r)
+static int parse_size(char *str, size_t *s)
 {
 	char *endp;
+	unsigned long r;
 	errno = 0;
-	*r = strtoul(str,&endp,0);
+	r = strtoul(str,&endp,0);
 	if(errno)
 		return errno;
 	switch(*endp) {
 		case 'g':
 		case 'G':
-			*r<<=10;
+			r<<=10;
 		case 'm':
 		case 'M':
-			*r<<=10;
+			r<<=10;
 		case 'k':
 		case 'K':
-			*r<<=10;
+			r<<=10;
 		default:
 			break;
 	}
+	*s = r;
 	return 0;
 }
 
@@ -105,7 +107,7 @@ static void init()
 {
 	char *env_colors, *env_size;
 	color_set c;
-	unsigned long size;
+	size_t size;
 	int err;
 
 	/* setup cleanup code */
