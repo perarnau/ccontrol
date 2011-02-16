@@ -1,1 +1,1 @@
-SUBDIRS= module lib
+SUBDIRS= module lib commons
