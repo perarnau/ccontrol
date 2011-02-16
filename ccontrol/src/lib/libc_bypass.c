@@ -29,13 +29,10 @@
  */
 
 extern struct ccontrol_zone local_zone;
-static void cleanup() __attribute__((destructor));
-//static void init() __attribute__((constructor));
 unsigned short init_ok = 0;
 
 static int parse_color_list(color_set *c, char *str)
 {
-	int err;
 	unsigned long a,b;
 	COLOR_ZERO(c);
 	do {
