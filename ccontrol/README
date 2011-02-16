@@ -16,9 +16,11 @@ The classical ./configure ; make ; make install should work
 This project has no dependencies except for the linux kernel headers
 necessary to compile the kernel module.
 
-WARNING: currently the kernel module needs "detect_cache.sh" to be run prior
-to running make (it will try to detect your cache characteristics, check the
-result file "cache_info.h" to ensure correct working.
+The kernel module install rule does not understand the install prefix,
+but there is a special variable named INSTALL_MOD_PATH, so the following will
+work:
+
+INSTALL_MOD_PATH=prefix make install
 
 Running:
 
