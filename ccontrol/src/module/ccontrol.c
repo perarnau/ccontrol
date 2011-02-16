@@ -216,7 +216,7 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	 * we want reproducible allocations, not something leading to
 	 * a color to be too much represented (that would cause unecessary
 	 * conflict misses in cache).*/
-	while(num < size)
+	while(1)
 	{
 		for(i = 0; i < LL_NUM_COLORS; i++)
 			if(COLOR_ISSET(i,&cset))
@@ -225,11 +225,14 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 				{
 					nbpages[i]--;
 					(*dev)->pages[num++] = pages[i][nbpages[i]];
+					if(num == size)
+						goto out;
 				}
 				else
 					goto free_pages;
 			}
 	}
+out:
 	(*dev)->nbpages = num;
 	printk(KERN_INFO "ccontrol: new device ready, %zu pages in it.\n",num);
 	return 0;
