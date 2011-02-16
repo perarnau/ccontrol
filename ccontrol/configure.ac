@@ -36,6 +36,6 @@ AM_CONDITIONAL([TEST_VALGRIND],[test "x$valgrind" = xtrue])
 # configuration output in config.h
 AC_CONFIG_HEADERS([config.h])
 # output makefiles
-AC_CONFIG_FILES([Makefile src/Makefile src/module/Makefile src/commons/Makefile src/lib/Makefile tests/Makefile ccontrol.pc])
+AC_CONFIG_FILES([Makefile src/Makefile src/module/Makefile src/commons/Makefile src/lib/Makefile tests/Makefile src/utils/Makefile ccontrol.pc])
 # do the output
 AC_OUTPUT
