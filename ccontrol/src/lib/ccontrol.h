@@ -36,8 +36,16 @@ struct ccontrol_zone * ccontrol_new(void);
 /* frees a zone */
 void ccontrol_delete(struct ccontrol_zone *);
 
+/* Convert a memory size requirement to a zone size
+ * @nballoc is the number of malloc call required
+ * @memsize is the total size of all required malloc
+ */
+size_t ccontrol_memsize2zonesize(unsigned int nballoc, size_t memsize);
+
 /* Creates a new memory colored zone.
  * Needs a color set and a total size.
+ * WARNING: the memory allocator needs space for itself, make
+ * sure size is enough for him as well (see ccontrol_memsize2zonesize).
  * Return 0 on success. */
 int ccontrol_create_zone(struct ccontrol_zone *, color_set *, size_t);
 

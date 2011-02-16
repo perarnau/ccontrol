@@ -34,7 +34,7 @@ struct ccontrol_zone {
 };
 
 /* needed by libc_bypass code */
-struct ccontrol_zone local_zone = { -1, NULL, 0};
+struct ccontrol_zone local_zone = { -1, NULL, 0, 0};
 
 struct ccontrol_zone * ccontrol_new(void)
 {
@@ -51,6 +51,11 @@ struct ccontrol_zone * ccontrol_new(void)
 void ccontrol_delete(struct ccontrol_zone *p)
 {
 	free(p);
+}
+
+size_t ccontrol_memsize2zonesize(unsigned int nballoc, size_t memsize)
+{
+	return memsize + ALLOCATOR_OVERHEAD + HEADER_SIZE*(nballoc-1);
 }
 
 int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, size_t size)
@@ -96,10 +101,8 @@ int ccontrol_create_zone(struct ccontrol_zone *z, color_set *c, size_t size)
 		err = 1;
 		goto clean_node;
 	}
-	/* update size for allocator overhead */
-	size += ALLOCATOR_OVERHEAD;
 	z->p = mmap(NULL,size,PROT_READ | PROT_WRITE, MAP_SHARED, z->fd,0);
-	if(z->p == NULL)
+	if(z->p == MAP_FAILED)
 	{
 		perror("module color device mmap:");
 		err = 1;
@@ -181,7 +184,7 @@ void *ccontrol_malloc(struct ccontrol_zone *z, size_t size)
 void ccontrol_free(struct ccontrol_zone *z, void *ptr)
 {
 	if(z == NULL)
-		return NULL;
+		return;
 	fl_free(z->p,ptr);
 }
 
