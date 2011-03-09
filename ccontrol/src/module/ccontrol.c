@@ -446,9 +446,6 @@ int alloc_devices(void)
 {
 	int err;
 	dev_t devno;
-	/* clear control struct */
-	memset(&control,0,sizeof(struct control_dev));
-	INIT_LIST_HEAD(&control.devices);
 
 	/* allocate character device numbers */
 	err = alloc_chrdev_region(&devices_id,0,MAX_DEVICES,"ccontrol");
@@ -563,6 +560,10 @@ static int __init init(void)
 		blocks++;
 
 	printk(KERN_DEBUG "ccontrol: will allocate %d blocks of order %d.\n",blocks,order);
+
+	/* clear control struct, this must be done before any errors */
+	memset(&control,0,sizeof(struct control_dev));
+	INIT_LIST_HEAD(&control.devices);
 
 	err = alloc_pagetable(blocks);
 	if(err)
