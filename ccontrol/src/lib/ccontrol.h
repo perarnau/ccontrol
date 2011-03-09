@@ -13,7 +13,7 @@
 #include<stdlib.h>
 
 #include"colorset.h"
-
+#include"ioctls.h"
 /* CControl library: provides colored memory allocations.
  * Tighly coupled with its Linux kernel module (in case of errors,
  * check that the library and module are in sync).
