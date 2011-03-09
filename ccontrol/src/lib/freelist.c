@@ -173,8 +173,7 @@ void *fl_realloc(void *z, void *p, size_t size)
 	ret = fl_allocate(z,size);
 	if(ret != NULL)
 	{
-		f = VOID_TO_FL(p);
-		ret = memcpy(ret,p,f->size);
+		ret = memcpy(ret,p,size);
 		fl_free(z,p);
 	}
 	return ret;
