@@ -24,23 +24,27 @@ INSTALL_MOD_PATH=prefix make install
 
 Running:
 
-You need to load the module into memory while specifying how much memory
-the module should reserve for its usage.
+The project includes a ccontrol command line tool to load, unload and execute
+commands.
 
-	sudo module_load mem=<memory size to reserve (in B)>
+sudo ccontrol load will load the required kernel module.
+
+You can specify how much memory the module should reserve for its usage with
+the --mem option (K,M and G chars can be used for sizes).
 
 Any memory you reserve for the module will be unavailable to the rest of the system (be careful
 to not trigger the OOM killer by reserving too much memory). The module does not support swapping
 allocated pages.
 
-Unloading:
-	sudo module_unload
+sudo ccontrol unload will unload the module and free physical memory.
+
+sudo ccontrol exec will execute a load the module, execute a command and unload the module.
+You can hijack dynamic memory allocation with option --ld-preload.
 
 How much memory can I get:
 	As much as there is physical memory in your system.
 
-New colored memory area are created by ioctls, the libccontrol provides a easier interface
-to use the kernel module.
+The libccontrol provides a easy interface to the cache control facilities.
 
 Using in applications:
 
