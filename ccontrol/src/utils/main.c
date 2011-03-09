@@ -11,12 +11,14 @@
 /* small executable to load/unload and ld_preload a binary */
 
 #include"config.h"
-
 #include<ccontrol.h>
+
+#include<fcntl.h>
 #include<getopt.h>
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+#include<sys/stat.h>
 #include<sys/types.h>
 #include<sys/wait.h>
 #include<unistd.h>
@@ -60,13 +62,27 @@ static int load_module(void)
 		perror("waitpid");
 		return EXIT_FAILURE;
 	}
-	return WIFEXITED(status) && WEXITSTATUS(status);
+	status = WIFEXITED(status) && WEXITSTATUS(status);
+	if(status)
+		return status;
+	/* create control device */
+	status = mknod(MODULE_CONTROL_DEVICE,S_IFCHR|S_IRWXU|S_IRWXG|S_IRWXO,
+			makedev(MAJOR_NUM,0));
+	if(status == -1)
+	{
+		perror("mknod");
+		return EXIT_FAILURE;
+	}
+	return 0;
 }
 
 static int unload_module(void)
 {
 	int status;
 	pid_t pid;
+	/* remove device, do not check for errors */
+	unlink(MODULE_CONTROL_DEVICE);
+
 	/* we need to fork to execute modprobe */
 	pid = fork();
 	if(pid == -1)
