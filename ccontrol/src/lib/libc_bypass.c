@@ -15,6 +15,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<sys/mman.h>
 #include<unistd.h>
 
 /* Dynamic memory allocations bypass : this code
@@ -30,6 +31,7 @@
 
 extern struct ccontrol_zone local_zone;
 unsigned short init_ok = 0;
+unsigned short in_init = 0;
 
 static int parse_color_list(color_set *c, char *str)
 {
@@ -107,6 +109,8 @@ static void init()
 	size_t size;
 	int err;
 
+	in_init = 1;
+
 	/* setup cleanup code */
 	err = atexit(&cleanup);
 	if(err)
@@ -151,11 +155,15 @@ static void init()
 		fprintf(stderr,"ccontrol: failed to allocate global zone\n");
 		exit(EXIT_FAILURE);
 	}
+	in_init = 0;
 	init_ok = 1;
 }
 
+#define MMAP(s) mmap(NULL,s,PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS,-1,0)
 void * malloc(size_t size)
 {
+	if(in_init)
+		return MMAP(size);
 	if(!init_ok)
 		init();
 	return ccontrol_malloc(&local_zone,size);
@@ -163,6 +171,8 @@ void * malloc(size_t size)
 
 void free(void * ptr)
 {
+	if(in_init)
+		return;
 	if(!init_ok)
 		init();
 	ccontrol_free(&local_zone,ptr);
@@ -170,6 +180,11 @@ void free(void * ptr)
 
 void * realloc(void *ptr, size_t size)
 {
+	if(in_init)
+	{
+		void *r = MMAP(size);
+		return memcpy(r,ptr,size);
+	}
 	if(!init_ok)
 		init();
 	return ccontrol_realloc(&local_zone,ptr,size);
@@ -178,11 +193,14 @@ void * realloc(void *ptr, size_t size)
 void * calloc(size_t nm, size_t size)
 {
 	void *p = NULL;
+	if(nm == 0 || size == 0)
+		return NULL;
+
+	if(in_init)
+		return MMAP(nm*size);
 	if(!init_ok)
 		init();
 
-	if(nm == 0 || size == 0)
-		return NULL;
 
 	p = malloc(nm*size);
 	if(p != NULL)
