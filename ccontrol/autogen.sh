@@ -2,6 +2,7 @@
 set -x
 # autoconf needs build-aux directory
 mkdir -p build-aux || exit 1
+mkdir -p m4 || exit 1
 sh version.sh
 # libtoolize generates m4 dir
 libtoolize || exit 1
