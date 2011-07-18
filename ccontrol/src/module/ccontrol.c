@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/version.h>
 // memory management
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
@@ -393,7 +394,11 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 static struct file_operations control_fops = {
 	.owner = THIS_MODULE,
 	.open = control_open,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+	.unlocked_ioctl = control_ioctl,
+#else
 	.ioctl = control_ioctl,
+#endif
 };
 
 
