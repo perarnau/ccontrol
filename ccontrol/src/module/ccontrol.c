@@ -161,16 +161,20 @@ int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct colored_dev *dev = filp->private_data;
 	size_t size;
 	// check for no offset
-	printk(KERN_INFO "ccontrol: mmap offset %lu.\n",vma->vm_pgoff);
 	if(vma->vm_pgoff != 0)
+	{
+		printk(KERN_ERR "ccontrol: no mmap offset is allowed, you asked for %lu.\n",vma->vm_pgoff);
 		return -EPERM;
+	}
 
 	// check size is ok
 	size = (vma->vm_end - vma->vm_start)/PAGE_SIZE;
-	printk(KERN_INFO "ccontrol: mmap size %zu, available %d.\n",
-			size, dev->nbpages);
 	if(size > dev->nbpages)
+	{
+		printk(KERN_ERR "ccontrol: mmap too big, you asked %zu, available %d.\n",
+			size, dev->nbpages);
 		return -ENOMEM;
+	}
 	// check MAP_SHARED is not asked
 	if(!(vma->vm_flags & VM_SHARED)) {
 		printk(KERN_ERR "ccontrol: you should not ask for a private mapping");
@@ -179,6 +183,7 @@ int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = &colored_vm_ops;
 	vma->vm_flags |= VM_RESERVED | VM_CAN_NONLINEAR;
 	vma->vm_private_data = filp->private_data;
+	printk(KERN_INFO "ccontrol: mmap ok\n");
 	return 0;
 }
 
@@ -199,7 +204,10 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	/* allocate device */
 	*dev = kmalloc(sizeof(struct colored_dev),GFP_KERNEL);
 	if(*dev == NULL)
+	{
+		printk(KERN_ERR "ccontrol: kmalloc failed in create_colored\n");
 		return -ENOMEM;
+	}
 	/* convert size to num pages */
 	if(size % PAGE_SIZE != 0)
 		size += PAGE_SIZE - (size % PAGE_SIZE);
@@ -207,8 +215,10 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 
 	(*dev)->pages = vmalloc(sizeof(struct page *)*size);
 	if((*dev)->pages == NULL)
+	{
+		printk(KERN_ERR "ccontrol: vmalloc failed in create_colored, asked %zu page pointers\n",size);
 		goto free_dev;
-
+	}
 	printk(KERN_INFO "ccontrol: allocating %zu pages to new device.\n",size);
 	(*dev)->nbpages = 0;
 	/* give it pages:
@@ -230,7 +240,10 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 						goto out;
 				}
 				else
+				{
+					printk(KERN_ERR "ccontrol: color %d unavailable\n",i);
 					goto free_pages;
+				}
 			}
 	}
 out:
@@ -248,6 +261,7 @@ free_pages:
 	vfree((*dev)->pages);
 free_dev:
 	kfree(*dev);
+	printk(KERN_ERR "ccontrol: create_colored failed\n");
 	return -ENOMEM;
 }
 
@@ -305,6 +319,7 @@ static int ioctl_new(ioctl_args *arg)
 	if(err)
 	{
 		/* cleanup device */
+		printk(KERN_ERR "ccontrol: cdev_add failed in ioctl_new, errcode %d\n",err);
 		free_colored(dev);
 		return err;
 	}
@@ -338,7 +353,10 @@ static int ioctl_free(ioctl_args *arg)
 		}
 	}
 	if(!found)
+	{
+		printk(KERN_ERR "ccontrol: invalid device minor %d\n",arg->minor);
 		return -EINVAL;
+	}
 	/* free it */
 	free_colored(cur);
 	return 0;
@@ -356,8 +374,11 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 			 * to the colorset and the wanted device size
 			 */
 			err = copy_from_user(&local,argp,sizeof(ioctl_args));
-			if(err) return -EFAULT;
-
+			if(err)
+			{
+				printk(KERN_ERR "ccontrol: copy_from_user failed %p, errcode : %d\n",argp,err);
+				return -EFAULT;
+			}
 			/* now that the params are ok, do real work */
 			err = ioctl_new(&local);
 			if(err) return err;
@@ -366,6 +387,7 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 			err = copy_to_user(argp,(void *)&local,sizeof(ioctl_args));
 			if(err)
 			{
+				printk(KERN_ERR "ccontrol: copy_to_user failed %p, errcode : %d\n",argp,err);
 				/* special case: if we can't give info to the user we
 				 * free the device immediately
 				 */
@@ -378,7 +400,11 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 			/* deletes a device, reclaiming its pages for the module
 			 */
 			err = copy_from_user(&local,argp,sizeof(ioctl_args));
-			if(err) return -EFAULT;
+			if(err)
+			{
+				printk(KERN_ERR "ccontrol: copy_from_user failed %p, errcode : %d\n",argp,err);
+				return -EFAULT;
+			}
 
 			/* now that the params are ok, do real work */
 			err = ioctl_free(&local);
@@ -386,6 +412,7 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 
 			break;
 		default:
+			printk(KERN_ERR "ccontrol: invalid opcode %u\n",code);
 			return -EPERM;
 	}
 	return 0;
