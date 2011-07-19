@@ -1,7 +1,7 @@
 prefix=@prefix@
 exec_prefix=@prefix@
 libdir=@libdir@
-includedir=@includedir@
+includedir=@includedir@/ccontrol
 
 Name: libccontrol
 Description: A library to allocate cache colored memory
