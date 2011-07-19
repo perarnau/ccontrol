@@ -363,7 +363,11 @@ static int ioctl_free(ioctl_args *arg)
 }
 
 /* handles ioctl on the device, see ioctls.h for available values */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+long control_ioctl(struct file *filp, unsigned int code, unsigned long val)
+#else
 int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, unsigned long val)
+#endif
 {
 	void __user *argp = (void __user *)val;
 	ioctl_args local;
@@ -413,7 +417,7 @@ int control_ioctl(struct inode *inode, struct file *filp, unsigned int code, uns
 			break;
 		default:
 			printk(KERN_ERR "ccontrol: invalid opcode %u\n",code);
-			return -EPERM;
+			return -EINVAL;
 	}
 	return 0;
 }
