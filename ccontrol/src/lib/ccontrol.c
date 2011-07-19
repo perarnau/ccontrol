@@ -176,21 +176,21 @@ int ccontrol_destroy_zone(struct ccontrol_zone *z)
 /* allocates memory inside the zone, use the freelist backend */
 void *ccontrol_malloc(struct ccontrol_zone *z, size_t size)
 {
-	if(z == NULL)
+	if(z == NULL || z->p == NULL)
 		return NULL;
 	return fl_allocate(z->p,size);
 }
 
 void ccontrol_free(struct ccontrol_zone *z, void *ptr)
 {
-	if(z == NULL)
+	if(z == NULL || z->p == NULL)
 		return;
 	fl_free(z->p,ptr);
 }
 
 void *ccontrol_realloc(struct ccontrol_zone *z, void *ptr, size_t size)
 {
-	if(z == NULL)
+	if(z == NULL || z->p == NULL)
 		return NULL;
 	return fl_realloc(z->p,ptr,size);
 }
