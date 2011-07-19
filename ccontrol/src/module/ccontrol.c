@@ -33,7 +33,7 @@ MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
 MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical address range.");
 MODULE_LICENSE("GPL");
 
-static unsigned long long memory = 0;
+static unsigned long memory = 0;
 static char *mem = "1k";
 module_param(mem,charp,0);
 MODULE_PARM_DESC(mem,"How much memory should I reserve in RAM.");
@@ -577,7 +577,7 @@ void cleanup(void)
 static int __init init(void)
 {
 	int err = 0;
-	unsigned long long blocks;
+	unsigned int blocks;
 	printk("ccontrol: started !\n");
 	order = get_order(LL_NUM_COLORS*PAGE_SIZE);
 	if(order < 0)
@@ -591,11 +591,11 @@ static int __init init(void)
 	memory = memparse(mem,NULL);
 
 	// compute the number of blocks we should allocate to reserve enough memory.
-	blocks = do_div(memory,PAGE_SIZE * (1<<order));
+	blocks = memory / (PAGE_SIZE * (1<<order));
 	if(blocks * (PAGE_SIZE * (1<<order)) < memory)
 		blocks++;
 
-	printk(KERN_DEBUG "ccontrol: will allocate %llu blocks of order %d.\n",blocks,order);
+	printk(KERN_DEBUG "ccontrol: will allocate %d blocks of order %d.\n",blocks,order);
 
 	/* clear control struct, this must be done before any errors */
 	memset(&control,0,sizeof(struct control_dev));
