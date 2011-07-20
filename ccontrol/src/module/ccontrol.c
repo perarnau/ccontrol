@@ -536,6 +536,10 @@ int reserve_memory(unsigned int nbh)
 	struct page *page,*nth;
 	unsigned long pfn;
 	unsigned int color;
+	unsigned int nids[MAX_NUMNODES];
+	for(i = 0; i < MAX_NUMNODES; i++)
+		if(node_online(i)) nids[i] = 0;
+
 	for(i = 0; i < nbh; i++)
 	{
 		// allocate an head
@@ -555,6 +559,10 @@ int reserve_memory(unsigned int nbh)
 			pages[color][nbpages[color]++] = nth;
 		}
 	}
+	for(i = 0; i < MAX_NUMNODES; i++)
+		if(node_online(i))
+			printk(KERN_INFO "ccontrol: numa node %d gave us %u blocks\n",i,nids[i]);
+
 	return 0;
 }
 
