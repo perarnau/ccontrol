@@ -550,6 +550,7 @@ int reserve_memory(unsigned int nbh)
 			return -ENOMEM;
 		}
 		heads[nbheads++] = page;
+		nids[page_to_nid(page)]++;
 		// split the head into colors
 		for(j = 0; j < 1<<order; j++)
 		{
