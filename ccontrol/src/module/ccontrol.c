@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/device.h>
 // linked list
 #include <linux/list.h>
 // cache info
@@ -39,7 +40,7 @@ module_param(mem,charp,0);
 MODULE_PARM_DESC(mem,"How much memory should I reserve in RAM.");
 /* need it global because of cleanup code */
 static unsigned int order = 0;
-
+static struct class *ccontrol_class;
 /* devices structures:
  * two types of devices are handled for ccontrol:
  *   - the control device which is always present.
@@ -501,11 +502,22 @@ int alloc_devices(void)
 	if(err)
 	{
 		printk(KERN_ERR "Error %d adding control device.\n",err);
-		unregister_chrdev_region(devices_id,MAX_DEVICES);
-		devices_id = DEVICES_DEFAULT_VALUE;
-		return err;
+		goto error;
 	}
+	ccontrol_class = class_create(THIS_MODULE,"ccontrol");
+	if(IS_ERR(ccontrol_class))
+	{
+		printk(KERN_ERR "Error create ccontrol class.\n");
+		cdev_del(&control.cdev);
+		err = PTR_ERR(ccontrol_class);
+		goto error;
+	}
+	device_create(ccontrol_class,NULL, devno,NULL,"ccontrol");
 	return 0;
+error:
+	unregister_chrdev_region(devices_id,MAX_DEVICES);
+	devices_id = DEVICES_DEFAULT_VALUE;
+	return err;
 }
 
 /* deletes all devices */
@@ -524,6 +536,8 @@ void clean_devices(void)
 	/* free the device number region */
 	if(devices_id != DEVICES_DEFAULT_VALUE)
 	{
+		device_destroy(ccontrol_class,MKDEV(MAJOR_NUM,0));
+		class_destroy(ccontrol_class);
 		cdev_del(&control.cdev);
 		unregister_chrdev_region(devices_id,MAX_DEVICES);
 	}
