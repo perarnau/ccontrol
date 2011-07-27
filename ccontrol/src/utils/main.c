@@ -63,25 +63,13 @@ static int load_module(void)
 		return EXIT_FAILURE;
 	}
 	status = WIFEXITED(status) && WEXITSTATUS(status);
-	if(status)
-		return status;
-	/* create control device */
-	status = mknod(MODULE_CONTROL_DEVICE,S_IFCHR|S_IRWXU|S_IRWXG|S_IRWXO,
-			makedev(MAJOR_NUM,0));
-	if(status == -1)
-	{
-		perror("mknod");
-		return EXIT_FAILURE;
-	}
-	return 0;
+	return status;
 }
 
 static int unload_module(void)
 {
 	int status;
 	pid_t pid;
-	/* remove device, do not check for errors */
-	unlink(MODULE_CONTROL_DEVICE);
 
 	/* we need to fork to execute modprobe */
 	pid = fork();
