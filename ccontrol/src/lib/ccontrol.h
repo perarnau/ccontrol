@@ -64,4 +64,15 @@ void ccontrol_free(struct ccontrol_zone *, void *);
 /* realloc memory */
 void *ccontrol_realloc(struct ccontrol_zone *, void *, size_t);
 
+/* translate string to color_set
+ * format is like cpusets : "1-4,5"
+ */
+int ccontrol_str2cset(color_set *, char *);
+
+/* translate string to size
+ * format is similar to kernel args : 1k 1M 1G
+ * upper and lower cases work
+ */
+int ccontrol_str2size(size_t *, char *);
+
 #endif /* CCONTROL_H */

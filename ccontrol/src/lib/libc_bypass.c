@@ -33,64 +33,6 @@ extern struct ccontrol_zone local_zone;
 unsigned short init_ok = 0;
 unsigned short in_init = 0;
 
-static int parse_color_list(color_set *c, char *str)
-{
-	unsigned long a,b;
-	COLOR_ZERO(c);
-	do {
-		if(!isdigit(*str))
-			return 1;
-		errno = 0;
-		b = a = strtoul(str,&str,0);
-		if(errno) return 1;
-		if(*str == '-') {
-			str++;
-			if(!isdigit(*str))
-				return 1;
-			errno = 0;
-			b = strtoul(str,&str,0);
-			if(errno) return 1;
-		}
-		if(a > b)
-			return 1;
-		if(b >= COLOR_SETSIZE)
-			return 1;
-		while(a <= b) {
-			COLOR_SET(a,c);
-			a++;
-		}
-		if(*str == ',')
-			str++;
-	} while(*str != '\0');
-	return 0;
-}
-
-/* parse size as an unsigned long possibly suffixed by k,m, or g */
-static int parse_size(char *str, size_t *s)
-{
-	char *endp;
-	unsigned long r;
-	errno = 0;
-	r = strtoul(str,&endp,0);
-	if(errno)
-		return errno;
-	switch(*endp) {
-		case 'g':
-		case 'G':
-			r<<=10;
-		case 'm':
-		case 'M':
-			r<<=10;
-		case 'k':
-		case 'K':
-			r<<=10;
-		default:
-			break;
-	}
-	*s = r;
-	return 0;
-}
-
 static void cleanup()
 {
 	int err;
@@ -135,12 +77,15 @@ static void init()
 	}
 
 	/* parse colors into colorset */
-	err = parse_color_list(&c,env_colors);
+	err = ccontrol_str2cset(&c,env_colors);
 	if(err)
+	{
+		fprintf(stderr,"ccontrol: invalid colorset in %s\n",CCONTROL_ENV_COLORS);
 		exit(EXIT_FAILURE);
+	}
 
 	/* parse size */
-	err = parse_size(env_size,&size);
+	err = ccontrol_str2size(&size,env_size);
 	if(err)
 	{
 		fprintf(stderr,"ccontrol: invalid size in %s, %s\n",CCONTROL_ENV_SIZE,

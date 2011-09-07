@@ -19,6 +19,7 @@
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<unistd.h>
+#include<errno.h>
 
 #define DEVICE_NAMELENGTH 80
 #define DEVICE_NAMEPREFIX MODULE_CONTROL_DEVICE
@@ -193,5 +194,67 @@ void *ccontrol_realloc(struct ccontrol_zone *z, void *ptr, size_t size)
 	if(z == NULL || z->p == NULL)
 		return NULL;
 	return fl_realloc(z->p,ptr,size);
+}
+
+
+int ccontrol_str2cset(color_set *c, char *str)
+{
+	unsigned long a,b;
+	if(str == NULL || c == NULL)
+		return 1;
+	COLOR_ZERO(c);
+	do {
+		if(!isdigit(*str))
+			return 1;
+		errno = 0;
+		b = a = strtoul(str,&str,0);
+		if(errno) return 1;
+		if(*str == '-') {
+			str++;
+			if(!isdigit(*str))
+				return 1;
+			errno = 0;
+			b = strtoul(str,&str,0);
+			if(errno) return 1;
+		}
+		if(a > b)
+			return 1;
+		if(b >= COLOR_SETSIZE)
+			return 1;
+		while(a <= b) {
+			COLOR_SET(a,c);
+			a++;
+		}
+		if(*str == ',')
+			str++;
+	} while(*str != '\0');
+	return 0;
+}
+
+int ccontrol_str2size(size_t *s, char *str)
+{
+	char *endp;
+	unsigned long r;
+	if(s == NULL || str == NULL)
+		return 1;
+	errno = 0;
+	r = strtoul(str,&endp,0);
+	if(errno)
+		return errno;
+	switch(*endp) {
+		case 'g':
+		case 'G':
+			r<<=10;
+		case 'm':
+		case 'M':
+			r<<=10;
+		case 'k':
+		case 'K':
+			r<<=10;
+		default:
+			break;
+	}
+	*s = r;
+	return 0;
 }
 
