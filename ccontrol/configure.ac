@@ -13,6 +13,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall -Werror gnu])
 # check for programs
 AC_LANG_C
+AC_GNU_SOURCE
 AC_PROG_CC
 AC_PROG_CC_C_O
 AM_PROG_CC_C_O

@@ -12,7 +12,7 @@
 
 #include"config.h"
 #include<ccontrol.h>
-
+#include<dirent.h>
 #include<fcntl.h>
 #include<getopt.h>
 #include<stdio.h>
@@ -22,6 +22,7 @@
 #include<sys/types.h>
 #include<sys/wait.h>
 #include<unistd.h>
+
 /* global variables:
  * mem: mem string to pass to module
  * size: string to use for CCONTROL_SIZE
@@ -34,10 +35,92 @@ char *colors = "1-32";
 int ask_ld = 0;
 int ask_noload = 0;
 
+
+static size_t cache_size;
+static unsigned long cache_assoc;
+static unsigned long numcolors;
+/* scan /sys/devices/system and open last index
+ * get size, assoc
+ * compute LL_NUM_COLORS
+ */
+#define SYSPATH "/sys/devices/system/cpu/cpu0/cache"
+static int scan_sys_cache_info(void)
+{
+	int r,i,n;
+	struct dirent **list;
+	FILE *f;
+	char buf[80],*s;
+	unsigned long pg_sz;
+	/* move to directory */
+	r = chdir(SYSPATH);
+	if(r != 0)
+	{
+		perror("moving to sysinfo cache directory");
+		return -1;
+	}
+	/* versionsort sort by index number */
+	n = scandir(SYSPATH,&list,0,versionsort);
+	if(n < 0)
+	{
+		perror("scanning sys info cache directory");
+		return -1;
+	}
+	r = chdir(list[n-1]->d_name);
+	/* clean list */
+	for(i = 0; i < n; i++)
+		free(list[i]);
+	free(list);
+	if(r != 0)
+	{
+		perror("moving to sysinfo index directory");
+		return -1;
+	}
+	/* read size */
+	f = fopen("size","r");
+	if(f == NULL)
+	{
+		perror("opening sysinfo file 'size'");
+		return -1;
+	}
+	s = fgets(buf,80,f);
+	if(s == NULL)
+	{
+		perror("reading sysinfo file 'size'");
+		return -1;
+	}
+	fclose(f);
+	ccontrol_str2size(&cache_size,buf);
+	/* read ways_of_associativity */
+	f = fopen("ways_of_associativity","r");
+	if(f == NULL)
+	{
+		perror("opening sysinfo file 'ways_of_associativity'");
+		return -1;
+	}
+	r = fscanf(f,"%lu",&cache_assoc);
+	if(r != 1)
+	{
+		perror("scanning ways_of_associativity");
+		fclose(f);
+	}
+	fclose(f);
+	/* compute number of colors */
+	pg_sz = sysconf(_SC_PAGESIZE);
+	if(pg_sz == -1)
+	{
+		perror("getting PAGESIZE from sysconf");
+		return -1;
+	}
+	numcolors = cache_size/(pg_sz*cache_assoc);
+	return 0;
+}
+
+
 /* commands:
  * load: load the kernel module
  * unload: unload the kernel module
  * exec: load, exec binary and unload
+ * info: print cache stats
  */
 static int load_module(void)
 {
@@ -138,6 +221,22 @@ fork_command:
 	return status;
 }
 
+static int cmd_info(void)
+{
+	int status;
+	status = scan_sys_cache_info();
+	if(status != 0)
+	{
+		fprintf(stderr,"command info failed\n");
+		return status;
+	}
+	printf("Cache stats:\n");
+	printf("LLC size:             %zu\n",cache_size);
+	printf("LLC associativity:    %lu\n",cache_assoc);
+	printf("LLC number of colors: %lu\n",numcolors);
+	return status;
+}
+
 /* command line helpers */
 static const char *version_string = PACKAGE_STRING;
 int ask_help = 0;
@@ -158,6 +257,7 @@ void print_help()
 	printf("load                    : load kernel module\n");
 	printf("unload                  : unload kernel module\n");
 	printf("exec <args>             : execute args\n");
+	printf("info                    : print cache information\n");
 }
 
 /* command line arguments */
@@ -235,7 +335,11 @@ int main(int argc, char *argv[])
 		print_help();
 		exit(EXIT_SUCCESS);
 	}
-
+	if(!strcmp(argv[0],"info"))
+	{
+		status = cmd_info();
+		goto end;
+	}
 	if(!strcmp(argv[0],"load"))
 	{
 		status = load_module();
