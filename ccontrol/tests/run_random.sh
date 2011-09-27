@@ -3,7 +3,7 @@
 set -e -u
 path=$srcdir/../src/module
 cd $path
-./module_load mem=5000
+./module_load mem=1M
 cd -
 ./random 12
 cd $path
