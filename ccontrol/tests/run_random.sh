@@ -1,11 +1,7 @@
 #!/bin/sh
 # load kernel module
 set -e -u
-path=$srcdir/../src/module
-cd $path
-./module_load mem=1M
-cd -
+path=$srcdir/../src/utils
+$path/ccontrol load -m 1M
 ./random 12
-cd $path
-./module_unload
-cd -
+$path/ccontrol unload
