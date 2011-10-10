@@ -25,7 +25,7 @@
  * this code.
  *
  * Two environment variables must be defined:
- * CCONTROL_COLORS: gives the color set to use.
+ * CCONTROL_PSET: gives the color set to use.
  * CCONTROL_SIZE: gives the allocation size to ask.
  */
 
@@ -46,7 +46,7 @@ static void cleanup()
 
 static void init()
 {
-	char *env_colors, *env_size;
+	char *env_pset, *env_size;
 	color_set c;
 	size_t size;
 	int err;
@@ -62,10 +62,10 @@ static void init()
 	}
 
 	/* load environment variables */
-	env_colors = getenv(CCONTROL_ENV_COLORS);
-	if(env_colors == NULL)
+	env_pset = getenv(CCONTROL_ENV_PARTITION_COLORSET);
+	if(env_pset == NULL)
 	{
-		fprintf(stderr,"ccontrol: missing env variable %s\n",CCONTROL_ENV_COLORS);
+		fprintf(stderr,"ccontrol: missing env variable %s\n",CCONTROL_ENV_PARTITION_COLORSET);
 		exit(EXIT_FAILURE);
 	}
 
@@ -77,10 +77,10 @@ static void init()
 	}
 
 	/* parse colors into colorset */
-	err = ccontrol_str2cset(&c,env_colors);
+	err = ccontrol_str2cset(&c,env_pset);
 	if(err)
 	{
-		fprintf(stderr,"ccontrol: invalid colorset in %s\n",CCONTROL_ENV_COLORS);
+		fprintf(stderr,"ccontrol: invalid colorset in %s\n",CCONTROL_ENV_PARTITION_COLORSET);
 		exit(EXIT_FAILURE);
 	}
 

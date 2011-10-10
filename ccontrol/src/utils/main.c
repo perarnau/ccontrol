@@ -26,12 +26,12 @@
 /* global variables:
  * mem: mem string to pass to module
  * size: string to use for CCONTROL_SIZE
- * colors: colorset string to use for CCONTROL_COLORS
+ * cset: colorset string to use for CCONTROL_PSET
  * ld: should ld_preload be set in forked environment
  */
 char *mem = "1M";
 char *size = "900K";
-char *colors = "1-32";
+char *cset = "1-32";
 int ask_ld = 0;
 int ask_noload = 0;
 
@@ -197,7 +197,7 @@ fork_command:
 		{
 			setenv("LD_PRELOAD",CCONTROL_LIB_PATH,1);
 			setenv(CCONTROL_ENV_SIZE,size,1);
-			setenv(CCONTROL_ENV_COLORS,colors,1);
+			setenv(CCONTROL_ENV_PARTITION_COLORSET,cset,1);
 		}
 		status = execvp(argv[1],&argv[1]);
 		perror("exec command");
@@ -250,7 +250,7 @@ void print_help()
 	printf("--version,-h            : print program version\n");
 	printf("--mem,-m <string>       : mem argument of the module\n");
 	printf("--size,-s <string>      : CCONTROL_SIZE value\n");
-	printf("--colors,-c <string>    : CCONTROL_COLORS value\n");
+	printf("--pset,-p <string>      : CCONTROL_PSET value\n");
 	printf("--ld-preload,-l         : set LD_PRELOAD before exec\n");
 	printf("--no-load,-n            : don't load module before exec\n");
 	printf("Available commands:\n");
@@ -267,12 +267,12 @@ static struct option long_options[] = {
 	{ "ld-preload", no_argument, &ask_ld, 1},
 	{ "no-load", no_argument, &ask_noload, 1},
 	{ "mem", required_argument, NULL, 'm' },
-	{ "colors", required_argument, NULL, 'c' },
+	{ "pset", required_argument, NULL, 'p' },
 	{ "size", required_argument, NULL, 's' },
 	{ 0, 0 , 0, 0},
 };
 
-static const char* short_opts ="hVlnm:c:s:";
+static const char* short_opts ="hVlnm:p:s:";
 
 int main(int argc, char *argv[])
 {
@@ -293,8 +293,8 @@ int main(int argc, char *argv[])
 			case 'm':
 				mem = optarg;
 				break;
-			case 'c':
-				colors = optarg;
+			case 'p':
+				cset = optarg;
 				break;
 			case 'l':
 				ask_ld = 1;

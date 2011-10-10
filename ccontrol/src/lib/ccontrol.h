@@ -27,7 +27,7 @@
 struct ccontrol_zone;
 
 /* environment variables names */
-#define CCONTROL_ENV_COLORS "CCONTROL_COLORS"
+#define CCONTROL_ENV_PARTITION_COLORSET "CCONTROL_PSET"
 #define CCONTROL_ENV_SIZE "CCONTROL_SIZE"
 
 /* allocates a zone */
