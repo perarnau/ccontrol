@@ -27,7 +27,6 @@
 // linked list
 #include <linux/list.h>
 // cache info
-#include "cache_info.h"
 #include "colorset.h"
 #include "ioctls.h"
 MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
@@ -38,9 +37,19 @@ static unsigned long memory = 0;
 static char *mem = "1k";
 module_param(mem,charp,0);
 MODULE_PARM_DESC(mem,"How much memory should I reserve in RAM.");
+static unsigned int colors = 1;
+module_param(colors,uint,0);
+MODULE_PARM_DESC(colors,"How many colors are available in cache.");
 /* need it global because of cleanup code */
 static unsigned int order = 0;
 static struct class *ccontrol_class;
+
+/* helper functions for color management */
+static inline unsigned int pfn_to_color(unsigned long pfn)
+{
+	return pfn%colors;
+}
+
 /* devices structures:
  * two types of devices are handled for ccontrol:
  *   - the control device which is always present.
@@ -102,8 +111,8 @@ unsigned int nbdevices = 0;
  * at the same color.
  */
 
-struct page** pages[LL_NUM_COLORS];
-unsigned int nbpages[LL_NUM_COLORS];
+struct page*** pages;
+unsigned int *nbpages;
 struct page* *heads = NULL;
 unsigned int nbheads  = 0;
 
@@ -230,7 +239,7 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	 * conflict misses in cache).*/
 	while(1)
 	{
-		for(i = 0; i < LL_NUM_COLORS; i++)
+		for(i = 0; i < colors; i++)
 			if(COLOR_ISSET(i,&cset))
 			{
 				if(nbpages[i] > 0)
@@ -257,7 +266,7 @@ free_pages:
 	{
 		tmp = (*dev)->pages[i];
 		pfn = page_to_pfn(tmp);
-		pages[PFN_TO_COLOR(pfn)][nbpages[PFN_TO_COLOR(pfn)]++] = tmp;
+		pages[pfn_to_color(pfn)][nbpages[pfn_to_color(pfn)]++] = tmp;
 	}
 	vfree((*dev)->pages);
 free_dev:
@@ -275,7 +284,7 @@ void free_colored(struct colored_dev *dev)
 	for(i = 0; i < dev->nbpages; i++)
 	{
 		pfn = page_to_pfn(dev->pages[i]);
-		color = PFN_TO_COLOR(pfn);
+		color = pfn_to_color(pfn);
 		pages[color][nbpages[color]++] = dev->pages[i];
 	}
 	/* free device */
@@ -446,11 +455,14 @@ static struct file_operations control_fops = {
 int alloc_pagetable(unsigned int nbh)
 {
 	int i;
-	// just to make sure everything is ok
-	for(i = 0; i < LL_NUM_COLORS; i++)
-		pages[i] = NULL;
+	pages = kcalloc(colors,sizeof(struct page**),GFP_KERNEL);
+	if(!pages)
+		return -ENOMEM;
+	nbpages = kcalloc(colors,sizeof(unsigned int),GFP_KERNEL);
+	if(!nbpages)
+		return -ENOMEM;
 
-	for(i = 0; i < LL_NUM_COLORS; i++)
+	for(i = 0; i < colors; i++)
 	{
 		pages[i] = (struct page **) vmalloc(nbh*2*sizeof(struct page *));
 		if(!pages[i])
@@ -473,9 +485,15 @@ void clean_pagetable(void)
 	if(heads)
 		kfree((void *)heads);
 
-	for(i = 0; i < LL_NUM_COLORS; i++)
-		if(pages[i] != NULL)
-			vfree((void *)pages[i]);
+	if(pages)
+	{
+		for(i = 0; i < colors; i++)
+			if(pages[i] != NULL)
+				vfree((void *)pages[i]);
+		kfree((void *)pages);
+	}
+	if(nbpages)
+		kfree((void *)nbpages);
 }
 
 /* allocates the char device numbers and creates the first device */
@@ -570,7 +588,7 @@ int reserve_memory(unsigned int nbh)
 		{
 			nth = nth_page(page,j);
 			pfn = page_to_pfn(nth);
-			color = PFN_TO_COLOR(pfn);
+			color = pfn_to_color(pfn);
 			pages[color][nbpages[color]++] = nth;
 		}
 	}
@@ -602,7 +620,8 @@ static int __init init(void)
 	int err = 0;
 	unsigned int blocks;
 	printk("ccontrol: started !\n");
-	order = get_order(LL_NUM_COLORS*PAGE_SIZE);
+	printk(KERN_INFO "ccontrol: configured with %u colors\n",colors);
+	order = get_order(colors*PAGE_SIZE);
 	if(order < 0)
 	{
 		printk(KERN_ERR "ccontrol: cannot find a good physical page block size.\n");

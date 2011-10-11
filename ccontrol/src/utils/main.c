@@ -12,6 +12,7 @@
 
 #include"config.h"
 #include<ccontrol.h>
+#include<errno.h>
 #include<dirent.h>
 #include<fcntl.h>
 #include<getopt.h>
@@ -34,7 +35,7 @@ char *size = "900K";
 char *cset = "1-32";
 int ask_ld = 0;
 int ask_noload = 0;
-
+int colors_seen = 0;
 
 static size_t cache_size;
 static unsigned long cache_assoc;
@@ -126,8 +127,13 @@ static int load_module(void)
 {
 	int status;
 	pid_t pid;
-	char arg[80];
-	snprintf(arg,80,"mem=%s",mem);
+	char argm[80],argc[80];
+	if(!colors_seen)
+		if(scan_sys_cache_info())
+			return EXIT_FAILURE;
+
+	snprintf(argm,80,"mem=%s",mem);
+	snprintf(argc,80,"colors=%lu",numcolors);
 	/* we need to fork to execute modprobe */
 	pid = fork();
 	if(pid == -1)
@@ -135,7 +141,7 @@ static int load_module(void)
 
 	if(!pid)
 	{
-		status = execlp("modprobe","modprobe", "ccontrol",arg,(char *)NULL);
+		status = execlp("modprobe","modprobe", "ccontrol",argm,argc,(char *)NULL);
 		perror("exec modprobe");
 		exit(EXIT_FAILURE);
 	}
@@ -251,6 +257,7 @@ void print_help()
 	printf("--mem,-m <string>       : mem argument of the module\n");
 	printf("--size,-s <string>      : CCONTROL_SIZE value\n");
 	printf("--pset,-p <string>      : CCONTROL_PSET value\n");
+	printf("--colors,-c <uint>      : colors argument of the module value\n");
 	printf("--ld-preload,-l         : set LD_PRELOAD before exec\n");
 	printf("--no-load,-n            : don't load module before exec\n");
 	printf("Available commands:\n");
@@ -269,10 +276,11 @@ static struct option long_options[] = {
 	{ "mem", required_argument, NULL, 'm' },
 	{ "pset", required_argument, NULL, 'p' },
 	{ "size", required_argument, NULL, 's' },
+	{ "colors", required_argument, NULL, 'c' },
 	{ 0, 0 , 0, 0},
 };
 
-static const char* short_opts ="hVlnm:p:s:";
+static const char* short_opts ="hVlnm:p:s:c:";
 
 int main(int argc, char *argv[])
 {
@@ -289,6 +297,16 @@ int main(int argc, char *argv[])
 		switch(c)
 		{
 			case 0:
+				break;
+			case 'c':
+				errno = 0;
+				numcolors = strtoul(optarg,(char **)NULL,0);
+				if(errno)
+				{
+					perror("colors option parsing");
+					exit(EXIT_FAILURE);
+				}
+				colors_seen = 1;
 				break;
 			case 'm':
 				mem = optarg;
