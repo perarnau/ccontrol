@@ -26,6 +26,8 @@
 #include <linux/device.h>
 // linked list
 #include <linux/list.h>
+// device bitmap
+#include <linux/bitmap.h>
 // cache info
 #include "colorset.h"
 #include "ioctls.h"
@@ -73,6 +75,7 @@ static inline unsigned int pfn_to_color(unsigned long pfn)
 #define MAX_DEVICES 64
 #define DEVICES_DEFAULT_VALUE (MKDEV(MAJOR(MAJOR_NUM),MINOR(0)))
 static dev_t devices_id = DEVICES_DEFAULT_VALUE;
+DECLARE_BITMAP(devmap,MAX_DEVICES);
 
 /* colored devices are created with a fixed size (in pages).
  * Pages allocated to the device are saved into it (for fast retreival).
@@ -97,7 +100,6 @@ struct control_dev {
 };
 
 struct control_dev control;
-unsigned int nbdevices = 0;
 
 /* Allocated Pages:
  * the kernel module reserves physical memory by making BIG allocations (BIG enough
@@ -136,7 +138,11 @@ int colored_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	offset =(unsigned int)vmf->pgoff;
 	if(offset >= dev->nbpages)
+	{
+		printk(KERN_ERR "ccontrol: dev: %u, offset %lu greater than device size %u.\n",
+			dev->minor,offset,dev->nbpages);
 		goto out;
+	}
 
 	page = dev->pages[offset];
 
@@ -179,6 +185,8 @@ int colored_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	// check size is ok
 	size = (vma->vm_end - vma->vm_start)/PAGE_SIZE;
+	printk(KERN_INFO "ccontrol: mmap size %zu, available %u.\n",
+			size, dev->nbpages);
 	if(size > dev->nbpages)
 	{
 		printk(KERN_ERR "ccontrol: mmap too big, you asked %zu, available %d.\n",
@@ -314,14 +322,20 @@ static int ioctl_new(ioctl_args *arg)
 
 	int err;
 	struct colored_dev *dev;
+	unsigned long devid = 0;
 	dev_t devno;
 	printk(KERN_INFO "ccontrol: ioctl, new device asked.\n");
+	/* check a device num is available */
+	if(bitmap_full(devmap,MAX_DEVICES))
+		return -ENOMEM;
+
 	/* create colored device */
 	err = create_colored(&dev,arg->c, arg->size);
 	if(err) return err;
 
 	/* register it */
-	devno = MKDEV(MAJOR(devices_id),MINOR(devices_id) + nbdevices +1);
+	devid = find_first_zero_bit(devmap,MAX_DEVICES);
+	devno = MKDEV(MAJOR(devices_id),MINOR(devices_id) + devid);
 	cdev_init(&dev->cdev,&colored_fops);
 	dev->cdev.owner = THIS_MODULE;
 	dev->cdev.ops = &colored_fops;
@@ -334,9 +348,9 @@ static int ioctl_new(ioctl_args *arg)
 		return err;
 	}
 
-	nbdevices++;
 	/* add it to the list */
-	dev->minor = MINOR(devices_id)+nbdevices;
+	set_bit(devid,devmap);
+	dev->minor = MINOR(devices_id)+devid;
 	list_add(&(dev->devices),&control.devices);
 
 	/* return device number */
@@ -369,6 +383,7 @@ static int ioctl_free(ioctl_args *arg)
 	}
 	/* free it */
 	free_colored(cur);
+	clear_bit(arg->minor - MINOR(devices_id),devmap);
 	return 0;
 }
 
@@ -531,6 +546,7 @@ int alloc_devices(void)
 		goto error;
 	}
 	device_create(ccontrol_class,NULL, devno,NULL,"ccontrol");
+	bitmap_zero(devmap,MAX_DEVICES);
 	return 0;
 error:
 	unregister_chrdev_region(devices_id,MAX_DEVICES);
