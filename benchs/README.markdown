@@ -32,7 +32,7 @@ fourth of `M2`. A fourth matrix `R` is the same size as `M3`.
 
 The only code region that matters and is analysed in the paper is similar to a
 stencil algorithm : a _cross_ of 9 cells are summed in each of the M matrices
-and the result is written to R. By cross we mean something like that :
+and the result is written to R. By _cross_ we mean something like that :
 
         ---------------------
        	|   |   | x |   |   |
@@ -49,7 +49,7 @@ and the result is written to R. By cross we mean something like that :
 The cache requirement of each matrix is easy to visualise : if 5 lines fit in
 cache, the program achieves maximum reuse. But since the result of a cell is
 computed at once, in a standard setting the cache must save 3x5 lines
-simultaneously. Note that there is no advantage to caching R, as it is only
+simultaneously. Note that there is no advantage to caching `R`, as it is only
 written a line at a time.
 
 Cache Optimization
@@ -64,10 +64,10 @@ thus just deduce the size (in colors) of each partition and be done with it.
 The following only demonstrate what should be done if the requirement of a data
 structure is less obvious.
 
-Say we want to determine how much cache M3 requires. One solution is to measure
+Say we want to determine how much cache `M3` requires. One solution is to measure
 the cache misses triggered by the application, starting with little cache for
-M3, and increasing progressively the cache given to M3.  As we increase the
-cache given to M3, it will progressively fit better in cache until achieving
+`M3`, and increasing progressively the cache given to it.  As we increase the
+cache given to the matrix,it will progressively fit better in cache until achieving
 maximum performance. To provide a baseline against which a cache misses
 variation can be seen, we isolate all the other data structure of fixed size (small) so that
 the cache misses triggered by the rest of the application stay stable.
