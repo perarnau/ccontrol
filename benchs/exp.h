@@ -10,13 +10,14 @@
 
 #include <papi.h>
 
-#define NUM_EVENTS 2
+#define NUM_EVENTS 1
 //#define CODE_EVENTS  PAPI_RES_STL, PAPI_TOT_CYC
 //#define NAME_EVENTS  "RES_STL","TOT_CYC"
 //#define CODE_EVENTS  PAPI_RES_STL, 0x40000004
 //#define NAME_EVENTS  "RES_STL","LLC_TCM"
-#define CODE_EVENTS  PAPI_RES_STL, PAPI_L2_TCM
-#define NAME_EVENTS  "RES_STL","L2_TCM"
+//#define CODE_EVENTS PAPI_RES_STL,
+//#define CODE_EVENTS  PAPI_RES_STL, PAPI_L2_TCM
+#define NAME_EVENTS  "L3_CACHE_MISSES"
 //#define CODE_EVENTS  PAPI_L2_TCM, 0x40000004
 //#define NAME_EVENTS  "L2_TCM","LLC_TCM"
 //#define CODE_EVENTS  0x40000003, 0x40000004
@@ -30,22 +31,27 @@ clock_gettime ( CLOCK_REALTIME, &main_s ) ; \
 struct timespec m_time_s, m_time_f ; \
 double exp_time ; \
 int event_idx ; \
-int Events[NUM_EVENTS] = { CODE_EVENTS } ; \
+int Events[NUM_EVENTS]; \
 long_long values[NUM_EVENTS] ; \
 char name_events[NUM_EVENTS][15] = { NAME_EVENTS } ; \
 if (PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT) { \
 	printf("problem in PAPI_library_init\n"); \
 	exit(1); \
 } \
+for(event_idx=0;event_idx<NUM_EVENTS;event_idx++){\
+	if(PAPI_event_name_to_code(name_events[event_idx],Events+event_idx) != PAPI_OK){ \
+		printf("problem translating event name to code %s\n", name_events[event_idx]); \
+		exit(1); \
+	} \
+}\
 if (PAPI_thread_init(pthread_self) != PAPI_OK) { \
 	printf("problem in PAPI_thread_init\n"); \
 	exit(1); \
 } \
-if ( PAPI_start_counters(Events, NUM_EVENTS ) != PAPI_OK ) { \
-	printf ( "problem in PAPI_start_counters\n" ) ; \
+if(PAPI_start_counters(Events, NUM_EVENTS )!= PAPI_OK ) { \
+	printf ( "problem in PAPI_start_counters: \n") ; \
 	exit(1) ; \
-} 
-
+}
 #define END_MAIN \
 if ( PAPI_stop_counters(values, NUM_EVENTS ) != PAPI_OK ) { \
 	printf ( "problem in PAPI_stop_counters\n" ) ; \
