@@ -1,7 +1,7 @@
 CControl : a software cache partitionning tool
 ==============================================
 
-CControl (Cache Control) is a Linux kernel module and accompagning libraries to
+CControl (Cache Control) is a Linux kernel module and accompanying libraries to
 control the amount of memory cache data structures inside an application can
 use.
 
@@ -217,3 +217,25 @@ used in these.
 The number of page of a given color is determined by the amount of RAM you give to the module. Since
 ccontrol does not support swapping, this number of pages also determines the maximal size of an allocation
 in a colored zone. Be careful not asking too much memory with too few pages available.
+
+References
+----------
+
+This tool was the subject of a publication in the International Conference on
+Supercomputing (ICS) in 2011. You can find the paper [here](http://moais.imag.fr/membres/swann.perarnau/pdfs/cacheics11.pdf).
+This paper describe several possible uses of ccontrol to measure and optimize the cache performance of HPC applications.
+
+You want to cite this paper :
+
+	Swann Perarnau, Marc Tchiboukdjian, and Guillaume Huard.
+	Controlling cache utilization of hpc applications.
+	In International Conference on Supercomputing (ICS), 2011.
+
+Or the Bibtex :
+
+	@inproceedings{ics11,
+		title = {Controlling Cache Utilization of HPC Applications},
+		author = {Swann Perarnau and Marc Tchiboukdjian and Guillaume Huard},
+		booktitle = {International Conference on Supercomputing (ICS)},
+		year = {2011}
+	}
