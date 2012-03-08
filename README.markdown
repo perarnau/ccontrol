@@ -225,13 +225,13 @@ This tool was the subject of a publication in the International Conference on
 Supercomputing (ICS) in 2011. You can find the paper [here](http://moais.imag.fr/membres/swann.perarnau/pdfs/cacheics11.pdf).
 This paper describe several possible uses of ccontrol to measure and optimize the cache performance of HPC applications.
 
-You want to cite this paper :
+If you want to cite this paper :
 
 	Swann Perarnau, Marc Tchiboukdjian, and Guillaume Huard.
 	Controlling cache utilization of hpc applications.
 	In International Conference on Supercomputing (ICS), 2011.
 
-Or the Bibtex :
+You can also use this Bibtex :
 
 	@inproceedings{ics11,
 		title = {Controlling Cache Utilization of HPC Applications},
