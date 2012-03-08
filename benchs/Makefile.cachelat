@@ -1,0 +1,12 @@
+CC=gcc
+CFLAGS=-O3 -Wall -Wextra -D_GNU_SOURCE -D_XOPEN_SOURCE=500 --std=c99 --pedantic $(shell pkg-config --cflags gsl)
+LDFLAGS= -lrt $(shell pkg-config --libs gsl)
+CCI= $(shell pkg-config --cflags ccontrol)
+
+all: latency-linux latency-cc
+
+latency-linux: cache_latency.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 
+
+latency-cc: cache_latency.c
+	$(CC) $(CFLAGS) -DUSE_CCONTROL $(CCI) $^ -o $@ $(LDFLAGS) -lccontrol 
