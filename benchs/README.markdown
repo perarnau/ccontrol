@@ -89,9 +89,32 @@ We will obtain something like that :
                  This is the optimal partition size for M3
 
 
+Cache Latency
+=============
 
+Ulrich Drepper documented with lot of details in _What Every Programmer Should
+Know About Memory_ a simple code to measure the cache latency of a system : the
+average time it takes to access a given cache level.
 
+The idea of this code is to access a lot of time the same memory region, but in
+a random way. By ensuring each access touches a different cache line, this
+randomness bypass any prefetch mechanism in the system.
 
+The size of the memory region touched determines if all access will eventually
+fall in a given cache level or not. By playing with this size, an experimenter
+can measure the average access time of each cache level in his system.
+
+The code present in this repository has two versions : a _linux_ one that
+replicate the traditional experiment and a _ccontrol_ version that allows
+someone to verify if ccontrol correctly partition the cache.
+
+In the _linux_ version, there is only one parameter : the size, as a power of
+2, of the memory region manipulated. In the _ccontrol_ version, a second
+parameter exists : the number of colors to limit the memory region into. This
+allows someone to compare at which region size the last cache is filled and RAM
+is systematically touched. This code is, by design, a mean to verify the
+correctness of ccontrol on a system (even if the check is difficult to
+automate).
 
 
 
