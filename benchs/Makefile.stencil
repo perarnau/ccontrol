@@ -1,12 +1,11 @@
 PAPIPATH=/usr/papi-4.1.1
 
 CFLAGS=-O2 -march=native `pkg-config --cflags ccontrol`
-LDFLAGS= -lrt -lccontrol `pkg-config --libs ccontrol`
+LDFLAGS= -lrt `pkg-config --libs ccontrol`
 ifeq ($(PAPI),1)
 CFLAGS+=-DUSE_PAPI -I$(PAPIPATH)/include
 LDFLAGS+=-lpapi -L$(PAPIPATH)/lib
 endif
-
 
 all: stencil
 
