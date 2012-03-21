@@ -55,6 +55,12 @@ int main(int argc, char *argv[])
 	assert(tab != NULL);
 	/* linked list randomization */
 	gsl_rng *r = gsl_rng_alloc(gsl_rng_mt19937);
+	FILE *f = fopen("./rng_state","r");
+	if(f)
+	{
+		assert(gsl_rng_fread(f,r) == 0);
+		fclose(f);
+	}
 	for(i = 0; i < size; i++)
 		tab[i].v = i;
 	gsl_ran_shuffle(r,(void *)tab, size,sizeof(struct elem));
@@ -65,6 +71,10 @@ int main(int argc, char *argv[])
 		cur = cur->n;
 	}
 	cur->n = &(tab[tab[0].v]);
+	f = fopen("./rng_state","w+");
+	assert(f);
+	assert(gsl_rng_fwrite(f,r) == 0);
+	fclose(f);
 	gsl_rng_free(r);
 
 	/* lock the program of first CPU */
