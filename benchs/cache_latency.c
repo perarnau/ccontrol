@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
 	assert(argc >= 2);
 
 	/* memory size as a power of 2 */
-	int log = atoi(argv[1]);
-	int size = 1<<log;
+	unsigned int log = atoi(argv[1]);
+	unsigned int size = 1<<log;
 	assert(size > 0  && size < (1<<27));
 	max = 3L*log*size;
 	struct timespec start;
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 
 	/* use the first colors */
 	COLOR_ZERO(&c);
-	for(int i = 0; i < atoi(argv[2]); i++)
+	for(i = 0; i < atoi(argv[2]); i++)
 		COLOR_SET(i,&c);
 
 	z = ccontrol_new();
