@@ -88,7 +88,7 @@ struct colored_dev {
 	unsigned int minor;
 	unsigned int nbpages;
 	struct page **pages;
-	color_set colors;
+	unsigned int numcolors;
 	struct list_head devices;
 };
 
@@ -219,6 +219,13 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	size_t num = 0;
 	unsigned long pfn;
 	struct page * tmp;
+	unsigned int numcolors;
+	numcolors = COLOR_NUMSET(&cset,colors);
+	if(numcolors == 0)
+	{
+		printk(KERN_ERR "ccontrol: empty color set\n");
+		return -ENOMEM;
+	}
 	/* allocate device */
 	*dev = kmalloc(sizeof(struct colored_dev),GFP_KERNEL);
 	if(*dev == NULL)
@@ -239,6 +246,7 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	}
 	printk(KERN_INFO "ccontrol: allocating %zu pages to new device.\n",size);
 	(*dev)->nbpages = 0;
+	(*dev)->numcolors = numcolors;
 	/* give it pages:
 	 * WARNING: we fail to allocate a device if a single
 	 * color has not enough pages. This is intended behavior:

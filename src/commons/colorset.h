@@ -49,4 +49,15 @@ typedef struct {
 #define COLOR_ISSET(c, setp) \
 	  ((__COLORS_BITS (setp)[__COLORELT(c)] & __COLORMASK(c)) != 0)
 
+static inline unsigned int COLOR_NUMSET(color_set *c, unsigned int max)
+{
+	unsigned int i,r=0;
+	for(i=0;i < COLOR_SETSIZE && i < max; i++)
+		if(COLOR_ISSET(i,c))
+			r++;
+	return r;
+}
+
+
+
 #endif /* COLOR_SET_H */
