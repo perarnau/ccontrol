@@ -2,3 +2,9 @@
 *.ko
 *.o
 *.cmd
+*.lo
+*.la
+*.deps
+*.libs
+config.log
+config.status
