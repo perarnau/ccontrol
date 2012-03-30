@@ -26,6 +26,8 @@
 #include <linux/device.h>
 // linked list
 #include <linux/list.h>
+// sort
+#include <linux/sort.h>
 // device bitmap
 #include <linux/bitmap.h>
 // cache info
@@ -118,6 +120,25 @@ unsigned int *nbpages;
 struct page* *heads = NULL;
 unsigned int nbheads  = 0;
 
+/* Utils: comparison function for pages.
+ * Used to sort physical pages by their addresses.
+ * WARNING: we sort pages by decreasing physical number.
+ */
+static int cmp_pages(const void *a, const void *b)
+{
+	struct page *pa, *pb;
+	unsigned long fa,fb;
+	pa = *(struct page **)a;
+	pb = *(struct page **)b;
+	fa = page_to_pfn(pa);
+	fb = page_to_pfn(pb);
+	if(fa == fb)
+		return 0;
+	else if(fa < fb)
+		return 1;
+	else
+		return -1;
+}
 
 /* Operations for the colored devices:
  * on each page fault, the corresponding physical page
@@ -278,7 +299,7 @@ out:
 	return 0;
 
 free_pages:
-	for(i = 0; i < num; i++)
+	for(i = num-1; i >= 0; i--)
 	{
 		tmp = (*dev)->pages[i];
 		pfn = page_to_pfn(tmp);
@@ -297,11 +318,19 @@ void free_colored(struct colored_dev *dev)
 	unsigned int color,i;
 	unsigned long pfn;
 	printk(KERN_INFO "ccontrol: freeing device with %u pages.\n",dev->nbpages);
+
 	for(i = 0; i < dev->nbpages; i++)
 	{
 		pfn = page_to_pfn(dev->pages[i]);
 		color = pfn_to_color(pfn);
 		pages[color][nbpages[color]++] = dev->pages[i];
+	}
+	/* the first numcolors pages are of a different color */
+	for(i = 0; i < dev->numcolors; i++)
+	{
+		pfn = page_to_pfn(dev->pages[i]);
+		color = pfn_to_color(pfn);
+		sort(pages[color],nbpages[color],sizeof(struct page*),cmp_pages,NULL);
 	}
 	/* free device */
 	vfree(dev->pages);
@@ -617,6 +646,10 @@ int reserve_memory(unsigned int nbh)
 			pages[color][nbpages[color]++] = nth;
 		}
 	}
+	/* sort all pages to improve locality in allocation */
+	for(i = 0; i < colors; i++)
+		sort(pages[i],nbpages[i],sizeof(struct page*),cmp_pages,NULL);
+
 	for(i = 0; i < MAX_NUMNODES; i++)
 		if(node_online(i))
 			printk(KERN_INFO "ccontrol: numa node %d gave us %u blocks\n",i,nids[i]);
