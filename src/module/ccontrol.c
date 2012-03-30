@@ -78,7 +78,7 @@ static dev_t devices_id = DEVICES_DEFAULT_VALUE;
 DECLARE_BITMAP(devmap,MAX_DEVICES);
 
 /* colored devices are created with a fixed size (in pages).
- * Pages allocated to the device are saved into it (for fast retreival).
+ * Pages allocated to the device are saved into it (for fast retrieval).
  * The struct also contain the colorset associated with this device and
  * the current number of pages associated with the device.
  * All colored devices are stored into a linked list.
@@ -104,7 +104,7 @@ struct control_dev control;
 /* Allocated Pages:
  * the kernel module reserves physical memory by making BIG allocations (BIG enough
  * to contain at least a page for each color in the last level cache.
- * Thoses bigs allocations are called heads and are of size 2**order pages.
+ * Those bigs allocations are called heads and are of size 2**order pages.
  *
  * Once reserved, an head is split into pages and a list of all the pages of the same
  * color is saved into a global array.
@@ -251,7 +251,7 @@ int create_colored(struct colored_dev **dev, color_set cset, size_t size)
 	 * WARNING: we fail to allocate a device if a single
 	 * color has not enough pages. This is intended behavior:
 	 * we want reproducible allocations, not something leading to
-	 * a color to be too much represented (that would cause unecessary
+	 * a color to be too much represented (that would cause unnecessary
 	 * conflict misses in cache).*/
 	while(1)
 	{
@@ -304,6 +304,7 @@ void free_colored(struct colored_dev *dev)
 		pages[color][nbpages[color]++] = dev->pages[i];
 	}
 	/* free device */
+	vfree(dev->pages);
 	kfree(dev);
 }
 
