@@ -237,19 +237,19 @@ available.
 FAQ
 ---
 
-- modprobe error: Module ccontrol not found.
+* modprobe error: Module ccontrol not found.
 
-The two most common reasons are a missing depmod after the first make
-install, and a system erasing the install path after reboot. While the
-Makefile coming from the kernel should do a module dependency update
-after install, sometimes it is not taken into account. Launching
-`depmod` as root after `make install` can solve this issue.
+	* The two most common reasons are a missing depmod after the first make
+	install, and a system erasing the install path after reboot. While the
+	Makefile coming from the kernel should do a module dependency update
+	after install, sometimes it is not taken into account. Launching
+	`depmod` as root after `make install` can solve this issue.
 
-If your system is configured so that the standard module install path
-is recreated after each reboot, the module will not survive a system
-shutdown (this issue is present on recent Ubuntu for exemple). Until
-ccontrol includes a dkms configuration and install rules, you must
-reinstall the module each time. Sorry...
+	* If your system is configured so that the standard module install path
+	is recreated after each reboot, the module will not survive a system
+	shutdown (this issue is present on recent Ubuntu for exemple). Until
+	ccontrol includes a dkms configuration and install rules, you must
+	reinstall the module each time. Sorry...
 
 References
 ----------
