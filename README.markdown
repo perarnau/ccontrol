@@ -109,7 +109,7 @@ First, as root, load the kernel module :
 This will reserve 1 GB of RAM for ccontrol and initialize page coloring.
 You can look at `dmesg` for additional info.
 
-If your application use the libccontrol library, you're done. Otherwise, you
+If your application use the ccontrol library (linked with libccontrol), you're done. Otherwise, you
 can limit the total amount of cache used by _dynamically allocated data structures_
 by using :
 
@@ -191,9 +191,10 @@ The `color_set` structure is a bitmask indicating authorized colors :
 Installing
 ---------
 
-The classical `./configure ; make ; make install` should work
+The classical `./autogen.sh ; ./configure ; make ; make install` should work.
 This project has no dependencies except for the Linux kernel headers
-necessary to compile the kernel module.
+necessary to compile the kernel module and the autotools
+(autoconf,automake,libtool).
 
 The only supported install path (prefix) is `/usr` with root privileges.
 
@@ -208,15 +209,47 @@ This is not recommended anyway, as modprobe will not find the module...
 Bugs and Limitations
 --------------------
 
-Some architecture do not use the standard modulo hash function to index lines in cache. This function
-is assumed by ccontrol when identifying the color of each page. If the architecture use something else,
-the real color of what ccontrol gives to a process will be wrong. Unfortunately, that includes
-Intel Sandy Bridge and newer cores. I'll buy a drink to anyone who can find the exact hash function
-used in these.
+This tool assume that physical lines of memory are distributed by round
+robin across all associate-sets. Given the cache size C, the
+associativity A and the page size P, ccontrol computes the number of
+colors as C/AP. Then, the module consider that page 0 is of color 0,
+page 1 of colors 1 and so on (a simple modulo gives us the color of each
+page). 
 
-The number of page of a given color is determined by the amount of RAM you give to the module. Since
-ccontrol does not support swapping, this number of pages also determines the maximal size of an allocation
-in a colored zone. Be careful not asking too much memory with too few pages available.
+Some architectures do not fit that description. Lines are not
+distributed in round robin, or the number of colors is more complicated
+than that. If you use ccontrol on such architecture, the real colors of
+pages given by ccontrol to a process will be wrong.
+Unfortunately, Intel Sandy Bridge and newer cores are among such
+architectures. While we are trying to find the right configuration,
+documentation on such detail in an architecture is scarce. I'll buy 
+a drink to anyone who can find the exact hash function, thus the good
+configuration of colors and physical-to-color conversion used in Nehalem
+EX, Westmere or Sandy Brigde (if you are curious about what exactly is
+going on, have a look at NUCA caches).
+
+The number of pages of a given color is determined by the amount of RAM
+you give to the module. Since ccontrol does not support swapping, this
+number of pages also determines the maximal size of an allocation in a
+colored zone. Be careful not asking too much memory with too few pages
+available.
+
+FAQ
+---
+
+- modprobe error: Module ccontrol not found.
+
+The two most common reasons are a missing depmod after the first make
+install, and a system erasing the install path after reboot. While the
+Makefile coming from the kernel should do a module dependency update
+after install, sometimes it is not taken into account. Launching
+`depmod` as root after `make install` can solve this issue.
+
+If your system is configured so that the standard module install path
+is recreated after each reboot, the module will not survive a system
+shutdown (this issue is present on recent Ubuntu for exemple). Until
+ccontrol includes a dkms configuration and install rules, you must
+reinstall the module each time. Sorry...
 
 References
 ----------

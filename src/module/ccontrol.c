@@ -34,7 +34,7 @@
 #include "colorset.h"
 #include "ioctls.h"
 MODULE_AUTHOR("Swann Perarnau <swann.perarnau@imag.fr>");
-MODULE_DESCRIPTION("Provides a debugfs file to mmap a physical address range.");
+MODULE_DESCRIPTION("Provides page coloring to userspace applications.");
 MODULE_LICENSE("GPL");
 
 static unsigned long memory = 0;
